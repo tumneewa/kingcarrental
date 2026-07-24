@@ -1,0 +1,30 @@
+{
+  "name": "rental-shop-app",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.110.8",
+    "next": "^16.2.11",
+    "promptpay-qr": "^0.5.0",
+    "qrcode": "^1.5.4",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "autoprefixer": "^10.5.4",
+    "lucide-react": "^1.26.0",
+    "postcss": "^8.5.22",
+    "tailwindcss": "^4.3.3"
+  }
+}

@@ -1,0 +1,388 @@
+"use client";
+
+import React, { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import generatePromptPayPayload from "promptpay-qr";
+import QRCode from "qrcode";
+import { supabase } from "../../lib/supabaseClient";
+import { todayISO, daysBetween, money, formatDate, dateISO, buildMonthGrid } from "../../lib/utils";
+import { SHOP_PROMPTPAY_ID, SHOP_DEPOSIT_AMOUNT } from "../../lib/shopConfig";
+import { t, useLang, localeFor } from "../../lib/i18n";
+import LangSwitcher from "../../components/LangSwitcher";
+import { Phone, User, Loader2, CheckCircle2, Car as CarIcon, QrCode, Upload } from "lucide-react";
+
+const INK = "#262626";
+const RED = "#C0392B";
+const RED_DARK = "#8E2A1E";
+const PAPER = "#F2F2F0";
+
+function Plate({ plate, province }) {
+  return (
+    <div
+      className="relative inline-flex flex-col items-center rounded-[3px] px-3 py-1.5 select-none"
+      style={{
+        background: `linear-gradient(180deg, ${RED} 0%, ${RED_DARK} 100%)`,
+        border: "2px solid white",
+        boxShadow: "0 0 0 1px rgba(0,0,0,0.15)",
+        minWidth: 120,
+      }}
+    >
+      <span className="absolute -top-[7px] rounded-sm bg-white px-1 text-[7px] font-bold tracking-wide" style={{ color: INK }}>
+        รถเช่า
+      </span>
+      <span className="mt-1 font-semibold text-white" style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 14, letterSpacing: 1 }}>
+        {plate}
+      </span>
+      <span className="text-[9px] text-white/85">{province}</span>
+    </div>
+  );
+}
+
+function CarPhoto({ car, className }) {
+  if (car.photo_url) {
+    return <img src={car.photo_url} alt={`${car.brand} ${car.model}`} className={className} />;
+  }
+  return (
+    <div className={`flex items-center justify-center bg-[#EDEDEA] ${className}`}>
+      <CarIcon size={28} className="text-[#B4B4AC]" />
+    </div>
+  );
+}
+
+export default function PublicBookingPage() {
+  return (
+    <Suspense fallback={null}>
+      <BookingContent />
+    </Suspense>
+  );
+}
+
+function BookingContent() {
+  const searchParams = useSearchParams();
+  const preselectCarId = searchParams.get("car");
+  const [lang, setLang] = useLang();
+
+  const [cars, setCars] = useState([]);
+  const [bookedRanges, setBookedRanges] = useState([]); // { car_id, start_date, end_date }
+  const [loaded, setLoaded] = useState(false);
+
+  const [selectedCarId, setSelectedCarId] = useState(null);
+  const [calendarMonth, setCalendarMonth] = useState(new Date());
+  const [rangeStart, setRangeStart] = useState(null);
+  const [rangeEnd, setRangeEnd] = useState(null);
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [done, setDone] = useState(false);
+  const [bookingId, setBookingId] = useState(null);
+  const [confirmedTotal, setConfirmedTotal] = useState(0);
+  const [qrDataUrl, setQrDataUrl] = useState("");
+  const [paymentNotified, setPaymentNotified] = useState(false);
+  const [notifying, setNotifying] = useState(false);
+  const [slipFile, setSlipFile] = useState(null);
+  const [uploadingSlip, setUploadingSlip] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const [carsRes, availRes] = await Promise.all([
+        supabase.from("cars").select("*").neq("status", "maintenance"),
+        supabase.from("public_bookings_availability").select("*"),
+      ]);
+      setCars(carsRes.data || []);
+      setBookedRanges(availRes.data || []);
+      setLoaded(true);
+      if (preselectCarId) setSelectedCarId(preselectCarId);
+    })();
+  }, [preselectCarId]);
+
+  const selectedCar = cars.find((c) => c.id === selectedCarId);
+  const todayStr = todayISO();
+
+  const bookingOnDate = (carId, iso) =>
+    bookedRanges.find((b) => b.car_id === carId && iso >= b.start_date && iso <= b.end_date);
+
+  const isRangeConflict = (carId, startIso, endIso) => {
+    let d = new Date(startIso);
+    const endD = new Date(endIso);
+    while (d <= endD) {
+      if (bookingOnDate(carId, dateISO(d))) return true;
+      d.setDate(d.getDate() + 1);
+    }
+    return false;
+  };
+
+  const openCar = (carId) => {
+    setSelectedCarId(carId);
+    setCalendarMonth(new Date());
+    setRangeStart(null);
+    setRangeEnd(null);
+    setSubmitError("");
+  };
+
+  const handleDayClick = (iso, disabled) => {
+    if (disabled) return;
+    if (!rangeStart || rangeEnd) { setRangeStart(iso); setRangeEnd(null); return; }
+    if (iso < rangeStart) { setRangeStart(iso); setRangeEnd(null); return; }
+    if (iso === rangeStart) return;
+    if (isRangeConflict(selectedCarId, rangeStart, iso)) { setRangeStart(iso); setRangeEnd(null); }
+    else setRangeEnd(iso);
+  };
+
+  const nDaysSel = rangeStart && rangeEnd ? daysBetween(rangeStart, rangeEnd) : 0;
+  const totalSel = selectedCar && nDaysSel ? nDaysSel * selectedCar.price_per_day : 0;
+
+  const submitRequest = async (e) => {
+    e.preventDefault();
+    if (!selectedCar || !rangeStart || !rangeEnd || !name.trim() || !phone.trim()) return;
+    setSubmitting(true);
+    setSubmitError("");
+    const { data, error } = await supabase.rpc("request_booking", {
+      p_car_id: selectedCar.id,
+      p_customer_name: name.trim(),
+      p_customer_phone: phone.trim(),
+      p_start_date: rangeStart,
+      p_end_date: rangeEnd,
+    });
+    setSubmitting(false);
+    if (error) {
+      setSubmitError(t(lang, "submitErrorGeneric"));
+      return;
+    }
+    setBookingId(data);
+    setConfirmedTotal(totalSel);
+    setPaymentNotified(false);
+    setQrDataUrl("");
+    setSlipFile(null);
+    if (SHOP_PROMPTPAY_ID) {
+      try {
+        const payload = generatePromptPayPayload(SHOP_PROMPTPAY_ID, { amount: SHOP_DEPOSIT_AMOUNT });
+        const url = await QRCode.toDataURL(payload, { margin: 1, width: 240 });
+        setQrDataUrl(url);
+      } catch (qrErr) {
+        console.error("สร้างคิวอาร์โค้ดไม่สำเร็จ", qrErr);
+      }
+    }
+    setDone(true);
+  };
+
+  const notifyPayment = async () => {
+    if (!bookingId) return;
+    setNotifying(true);
+    let slipUrl = null;
+    if (slipFile) {
+      setUploadingSlip(true);
+      const ext = slipFile.name.split(".").pop();
+      const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from("payment-slips").upload(path, slipFile);
+      if (!uploadError) {
+        const { data: pub } = supabase.storage.from("payment-slips").getPublicUrl(path);
+        slipUrl = pub.publicUrl;
+      }
+      setUploadingSlip(false);
+    }
+    await supabase.rpc("notify_payment", { p_booking_id: bookingId, p_slip_url: slipUrl });
+    setNotifying(false);
+    setPaymentNotified(true);
+  };
+
+  if (!loaded) {
+    return (
+      <div className="flex min-h-screen items-center justify-center" style={{ background: PAPER }}>
+        <div className="flex items-center gap-2 text-sm text-stone-500"><Loader2 size={16} className="animate-spin" /> {t(lang, "loading")}</div>
+      </div>
+    );
+  }
+
+  if (done) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-4" style={{ background: PAPER }}>
+        <div className="w-full max-w-sm rounded-xl bg-white p-6 text-center shadow-sm">
+          <CheckCircle2 size={36} style={{ color: RED }} className="mx-auto" />
+          <p className="mt-3 text-sm font-bold" style={{ color: INK }}>{t(lang, "bookingSent")}</p>
+          <p className="mt-1 text-xs text-stone-500">{t(lang, "bookingSentSub")}</p>
+
+          {qrDataUrl && (
+            <div className="mt-5 rounded-lg border border-black/5 p-4" style={{ background: PAPER }}>
+              <p className="flex items-center justify-center gap-1.5 text-xs font-semibold" style={{ color: INK }}>
+                <QrCode size={14} /> {t(lang, "scanPay")}
+              </p>
+              <img src={qrDataUrl} alt="พร้อมเพย์ QR" className="mx-auto mt-3 h-48 w-48" />
+              <p className="mt-2 text-lg font-bold" style={{ color: RED, fontFamily: "'IBM Plex Mono', monospace" }}>{money(SHOP_DEPOSIT_AMOUNT)}</p>
+              <p className="text-[11px] text-stone-400">{t(lang, "depositNote", { total: money(confirmedTotal) })}</p>
+
+              {paymentNotified ? (
+                <p className="mt-3 text-xs font-semibold" style={{ color: RED }}>{t(lang, "paymentNotifiedDone")}</p>
+              ) : (
+                <>
+                  <div className="mt-3">
+                    <label className="flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-black/15 bg-white px-3 py-2.5 text-xs font-semibold" style={{ color: INK }}>
+                      <Upload size={13} />
+                      {slipFile ? slipFile.name : t(lang, "attachSlip")}
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => setSlipFile(e.target.files?.[0] || null)} />
+                    </label>
+                  </div>
+                  <button
+                    onClick={notifyPayment}
+                    disabled={notifying || uploadingSlip}
+                    className="mt-2 w-full rounded-lg py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                    style={{ background: RED }}
+                  >
+                    {uploadingSlip ? t(lang, "uploadingSlip") : notifying ? t(lang, "notifying") : t(lang, "notifyPayment")}
+                  </button>
+                </>
+              )}
+              <p className="mt-2 text-[10px] text-stone-400">{t(lang, "afterPayHint")}</p>
+            </div>
+          )}
+
+          <button
+            onClick={() => { setDone(false); setSelectedCarId(null); setName(""); setPhone(""); setRangeStart(null); setRangeEnd(null); }}
+            className="mt-4 rounded-lg px-4 py-2 text-xs font-semibold text-white"
+            style={{ background: RED }}
+          >
+            {t(lang, "bookAnotherCar")}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const grid = selectedCarId ? buildMonthGrid(calendarMonth) : [];
+
+  return (
+    <div className="min-h-screen w-full" style={{ background: PAPER, fontFamily: "'Noto Sans Thai', sans-serif" }}>
+      <header className="flex items-center justify-between px-5 py-4">
+        <div className="flex items-center gap-2">
+          <div
+            className="flex h-8 w-11 items-center justify-center rounded-[3px] border-2 border-white text-[9px] font-bold text-white"
+            style={{ background: `linear-gradient(180deg, ${RED} 0%, ${RED_DARK} 100%)`, fontFamily: "'IBM Plex Mono', monospace", boxShadow: "0 0 0 1px rgba(0,0,0,0.15)" }}
+          >
+            รถเช่า
+          </div>
+          <div>
+            <p className="text-sm font-bold leading-tight" style={{ color: INK }}>{t(lang, "bookingPageTitle")}</p>
+            <p className="text-[11px] leading-tight text-stone-400">{t(lang, "bookingPageSub")}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <LangSwitcher lang={lang} setLang={setLang} />
+          <a href="/" className="text-xs font-semibold text-stone-400 hover:text-stone-600">{t(lang, "backHome")}</a>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-3xl px-4 pb-10">
+        {!selectedCarId ? (
+          <>
+            <p className="mb-3 text-sm font-bold" style={{ color: INK }}>{t(lang, "selectCarPrompt")}</p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {cars.map((c) => (
+                <button key={c.id} onClick={() => openCar(c.id)} className="overflow-hidden rounded-xl border border-black/5 bg-white text-left shadow-sm transition-shadow hover:shadow-md">
+                  <CarPhoto car={c} className="h-32 w-full object-cover" />
+                  <div className="p-4">
+                    <Plate plate={c.plate} province={c.province} />
+                    <p className="mt-3 text-sm font-bold" style={{ color: INK }}>{c.brand} {c.model}</p>
+                    <p className="text-xs text-stone-500">{c.type}</p>
+                    <div className="mt-2 flex items-baseline gap-1">
+                      <span className="text-lg font-bold" style={{ color: RED, fontFamily: "'IBM Plex Mono', monospace" }}>{money(c.price_per_day)}</span>
+                      <span className="text-xs text-stone-400">{t(lang, "perDay")}</span>
+                    </div>
+                  </div>
+                </button>
+              ))}
+              {cars.length === 0 && <p className="text-sm text-stone-400">{t(lang, "noCars")}</p>}
+            </div>
+          </>
+        ) : (
+          <div className="overflow-hidden rounded-xl bg-white shadow-sm">
+            <CarPhoto car={selectedCar} className="h-40 w-full object-cover" />
+            <div className="p-5">
+            <button onClick={() => setSelectedCarId(null)} className="mb-3 text-xs font-semibold text-stone-400 hover:text-stone-600">{t(lang, "backToSelect")}</button>
+
+            <div className="flex items-center gap-3">
+              <Plate plate={selectedCar.plate} province={selectedCar.province} />
+              <div>
+                <p className="text-sm font-bold" style={{ color: INK }}>{selectedCar.brand} {selectedCar.model}</p>
+                <p className="text-xs text-stone-500">{money(selectedCar.price_per_day)} {t(lang, "perDay")}</p>
+              </div>
+            </div>
+
+            <div className="mt-4 flex items-center justify-between">
+              <button onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))} className="rounded-lg px-2 py-1 text-sm text-stone-500 hover:bg-stone-100">‹</button>
+              <p className="text-sm font-bold" style={{ color: INK }}>{calendarMonth.toLocaleDateString(localeFor(lang), { month: "long", year: "numeric" })}</p>
+              <button onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))} className="rounded-lg px-2 py-1 text-sm text-stone-500 hover:bg-stone-100">›</button>
+            </div>
+
+            <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[10px] text-stone-400">
+              {t(lang, "weekdays").map((d, i) => <div key={i}>{d}</div>)}
+            </div>
+            <div className="mt-1 grid grid-cols-7 gap-1">
+              {grid.map((d, i) => {
+                if (!d) return <div key={i} />;
+                const iso = dateISO(d);
+                const isPast = iso < todayStr;
+                const booking = bookingOnDate(selectedCarId, iso);
+                const disabled = isPast || !!booking;
+                const inRange = rangeStart && (rangeEnd ? iso >= rangeStart && iso <= rangeEnd : iso === rangeStart);
+                let bg = "#EDEDEA", color = "#6B6B66";
+                if (isPast) { bg = "#F1F1EE"; color = "#B4B4AC"; }
+                else if (booking) { bg = "#FBE4E1"; color = "#C0392B"; }
+                if (inRange) { bg = RED; color = "white"; }
+                return (
+                  <button key={i} type="button" onClick={() => handleDayClick(iso, disabled)} disabled={disabled}
+                    className="flex h-9 items-center justify-center rounded-md text-xs font-semibold disabled:cursor-not-allowed"
+                    style={{ background: bg, color, cursor: disabled ? "not-allowed" : "pointer" }}>
+                    {d.getDate()}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-3 flex items-center gap-4 text-[11px] text-stone-500">
+              <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: "#EDEDEA" }} />{t(lang, "legendAvailable")}</span>
+              <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: "#FBE4E1" }} />{t(lang, "legendBooked")}</span>
+              <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: RED }} />{t(lang, "legendSelected")}</span>
+            </div>
+
+            {rangeStart && (
+              <div className="mt-4 rounded-lg border border-black/5 p-3" style={{ background: PAPER }}>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold" style={{ color: INK }}>
+                    {rangeEnd ? `${formatDate(rangeStart)} – ${formatDate(rangeEnd)} (${nDaysSel} ${t(lang, "daysUnit")})` : `${formatDate(rangeStart)} ${t(lang, "pickReturnDate")}`}
+                  </p>
+                  <button onClick={() => { setRangeStart(null); setRangeEnd(null); }} className="text-[11px] text-stone-400 hover:text-stone-600">{t(lang, "clear")}</button>
+                </div>
+
+                {rangeEnd && (
+                  <form onSubmit={submitRequest} className="mt-3 space-y-2.5">
+                    <div className="flex items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2">
+                      <User size={14} className="text-stone-400" />
+                      <input required value={name} onChange={(e) => setName(e.target.value)} placeholder={t(lang, "namePlaceholder")} className="w-full text-sm outline-none" />
+                    </div>
+                    <div className="flex items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2">
+                      <Phone size={14} className="text-stone-400" />
+                      <input required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t(lang, "phonePlaceholder")} className="w-full text-sm outline-none" />
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-xs text-stone-500">{t(lang, "estimatedTotal")}</span>
+                      <span className="text-base font-bold" style={{ color: RED, fontFamily: "'IBM Plex Mono', monospace" }}>{money(totalSel)}</span>
+                    </div>
+
+                    {submitError && <p className="text-xs font-medium text-red-600">{submitError}</p>}
+
+                    <button type="submit" disabled={submitting} className="w-full rounded-lg py-2.5 text-sm font-bold text-white disabled:opacity-50" style={{ background: RED }}>
+                      {submitting ? t(lang, "submitting") : t(lang, "submitBooking")}
+                    </button>
+                    <p className="text-center text-[10px] text-stone-400">{t(lang, "notConfirmedNote")}</p>
+                  </form>
+                )}
+              </div>
+            )}
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
