@@ -115,6 +115,7 @@ export default function Dashboard() {
   const router = useRouter();
   const [session, setSession] = useState(undefined); // undefined = loading, null = no session
   const [profile, setProfile] = useState(null);
+  const [profileLoaded, setProfileLoaded] = useState(false);
   const [nameInput, setNameInput] = useState("");
 
   const [cars, setCars] = useState([]);
@@ -143,6 +144,7 @@ export default function Dashboard() {
     (async () => {
       const { data } = await supabase.from("profiles").select("*").eq("id", session.user.id).maybeSingle();
       setProfile(data || null);
+      setProfileLoaded(true);
     })();
   }, [session]);
 
@@ -368,7 +370,7 @@ export default function Dashboard() {
   };
 
   // ---- loading / auth gates ----
-  if (session === undefined || (session && !dataLoaded)) {
+  if (session === undefined) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center" style={{ background: PAPER }}>
         <div className="flex items-center gap-2 text-sm text-stone-500">
@@ -378,6 +380,16 @@ export default function Dashboard() {
     );
   }
   if (!session) return null; // redirecting to /login
+
+  if (!profileLoaded) {
+    return (
+      <div className="flex min-h-screen w-full items-center justify-center" style={{ background: PAPER }}>
+        <div className="flex items-center gap-2 text-sm text-stone-500">
+          <Loader2 size={16} className="animate-spin" /> กำลังโหลด...
+        </div>
+      </div>
+    );
+  }
 
   if (profile === null || (profile && !profile.full_name)) {
     return (
@@ -397,6 +409,16 @@ export default function Dashboard() {
               เริ่มใช้งาน
             </button>
           </form>
+        </div>
+      </div>
+    );
+  }
+
+  if (!dataLoaded) {
+    return (
+      <div className="flex min-h-screen w-full items-center justify-center" style={{ background: PAPER }}>
+        <div className="flex items-center gap-2 text-sm text-stone-500">
+          <Loader2 size={16} className="animate-spin" /> กำลังโหลด...
         </div>
       </div>
     );
