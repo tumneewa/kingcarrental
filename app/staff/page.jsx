@@ -4,6 +4,8 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 import { todayISO, daysBetween, money, formatDate, dateISO, buildMonthGrid } from "../../lib/utils";
+import { SHOP_LOGO_URL, SHOP_NAME } from "../../lib/shopConfig";
+import PhotoThumb, { carPhotos } from "../../components/PhotoThumb";
 import {
   LayoutDashboard,
   Car,
@@ -196,29 +198,37 @@ export default function Dashboard() {
   // ---- add car ----
   const [showAddCar, setShowAddCar] = useState(false);
   const [carForm, setCarForm] = useState({ plate: "", province: "กรุงเทพมหานคร", brand: "", model: "", type: "รถเล็ก", price_per_day: "" });
-  const [carPhotoFile, setCarPhotoFile] = useState(null);
+  const [carPhotoFiles, setCarPhotoFiles] = useState([]); // สูงสุด 10 ไฟล์
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  const uploadCarPhotos = async (files) => {
+    const urls = [];
+    for (const file of files) {
+      const ext = file.name.split(".").pop();
+      const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from("car-photos").upload(path, file);
+      if (!uploadError) {
+        const { data } = supabase.storage.from("car-photos").getPublicUrl(path);
+        urls.push(data.publicUrl);
+      }
+    }
+    return urls;
+  };
 
   const submitCar = async (e) => {
     e.preventDefault();
     if (!carForm.plate || !carForm.brand || !carForm.model || !carForm.price_per_day) return;
 
-    let photo_url = null;
-    if (carPhotoFile) {
+    let photos = [];
+    if (carPhotoFiles.length > 0) {
       setUploadingPhoto(true);
-      const ext = carPhotoFile.name.split(".").pop();
-      const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from("car-photos").upload(path, carPhotoFile);
-      if (!uploadError) {
-        const { data } = supabase.storage.from("car-photos").getPublicUrl(path);
-        photo_url = data.publicUrl;
-      }
+      photos = await uploadCarPhotos(carPhotoFiles);
       setUploadingPhoto(false);
     }
 
-    await supabase.from("cars").insert({ ...carForm, price_per_day: Number(carForm.price_per_day), status: "available", photo_url });
+    await supabase.from("cars").insert({ ...carForm, price_per_day: Number(carForm.price_per_day), status: "available", photos });
     setCarForm({ plate: "", province: "กรุงเทพมหานคร", brand: "", model: "", type: "รถเล็ก", price_per_day: "" });
-    setCarPhotoFile(null);
+    setCarPhotoFiles([]);
     setShowAddCar(false);
     fetchAll();
   };
@@ -226,6 +236,27 @@ export default function Dashboard() {
   const setCarStatus = async (carId, status) => {
     setCars((cs) => cs.map((c) => (c.id === carId ? { ...c, status } : c)));
     await supabase.from("cars").update({ status }).eq("id", carId);
+  };
+
+  const [addingPhotosTo, setAddingPhotosTo] = useState(false);
+
+  const addPhotosToCar = async (car, files) => {
+    if (!files || files.length === 0) return;
+    setAddingPhotosTo(true);
+    const existing = carPhotos(car);
+    const room = Math.max(0, 10 - existing.length);
+    const toUpload = Array.from(files).slice(0, room);
+    const newUrls = await uploadCarPhotos(toUpload);
+    const updated = [...existing, ...newUrls];
+    await supabase.from("cars").update({ photos: updated }).eq("id", car.id);
+    setAddingPhotosTo(false);
+    fetchAll();
+  };
+
+  const removePhotoFromCar = async (car, url) => {
+    const updated = carPhotos(car).filter((p) => p !== url);
+    await supabase.from("cars").update({ photos: updated }).eq("id", car.id);
+    fetchAll();
   };
 
   // ---- car availability calendar ----
@@ -442,14 +473,18 @@ export default function Dashboard() {
       {/* ---------- sidebar ---------- */}
       <aside className="flex w-60 flex-shrink-0 flex-col gap-1 px-4 py-6" style={{ background: INK }}>
         <div className="mb-6 flex items-center gap-2 px-1">
-          <div
-            className="flex h-8 w-11 items-center justify-center rounded-[3px] border-2 border-white text-[9px] font-bold text-white"
-            style={{ background: `linear-gradient(180deg, ${PLATE_RED} 0%, ${PLATE_RED_DARK} 100%)`, fontFamily: "'IBM Plex Mono', monospace" }}
-          >
-            รถเช่า
-          </div>
+          {SHOP_LOGO_URL ? (
+            <img src={SHOP_LOGO_URL} alt={SHOP_NAME} className="h-9 w-auto rounded-[3px] object-contain" />
+          ) : (
+            <div
+              className="flex h-8 w-11 items-center justify-center rounded-[3px] border-2 border-white text-[9px] font-bold text-white"
+              style={{ background: `linear-gradient(180deg, ${PLATE_RED} 0%, ${PLATE_RED_DARK} 100%)`, fontFamily: "'IBM Plex Mono', monospace" }}
+            >
+              รถเช่า
+            </div>
+          )}
           <div>
-            <p className="text-sm font-bold leading-tight text-white">จัดการรถเช่า</p>
+            <p className="text-sm font-bold leading-tight text-white">{SHOP_NAME || "จัดการรถเช่า"}</p>
             <p className="text-[10px] leading-tight text-white/50">ระบบหลังร้าน</p>
           </div>
         </div>
@@ -584,7 +619,7 @@ export default function Dashboard() {
               <div className="mt-5 grid grid-cols-3 gap-4">
                 {cars.map((c) => (
                   <div key={c.id} onClick={() => openCarDetail(c.id)} className="cursor-pointer overflow-hidden rounded-xl border border-black/5 bg-white shadow-sm transition-shadow hover:shadow-md">
-                    {c.photo_url && <img src={c.photo_url} alt={`${c.brand} ${c.model}`} className="h-28 w-full object-cover" />}
+                    <PhotoThumb car={c} className="h-28 w-full" />
                     <div className="p-4">
                     <div className="flex items-start justify-between">
                       <Plate plate={c.plate} province={c.province} />
@@ -847,8 +882,17 @@ export default function Dashboard() {
               </select>
               <input required type="number" min="0" placeholder="ราคาต่อวัน (บาท)" value={carForm.price_per_day} onChange={(e) => setCarForm({ ...carForm, price_per_day: e.target.value })} className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm outline-none" />
               <div>
-                <label className="text-xs text-stone-500">รูปรถ (ไม่บังคับ)</label>
-                <input type="file" accept="image/*" onChange={(e) => setCarPhotoFile(e.target.files?.[0] || null)} className="mt-1 w-full text-xs text-stone-500" />
+                <label className="text-xs text-stone-500">รูปรถ (ไม่บังคับ สูงสุด 10 รูป)</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => setCarPhotoFiles(Array.from(e.target.files || []).slice(0, 10))}
+                  className="mt-1 w-full text-xs text-stone-500"
+                />
+                {carPhotoFiles.length > 0 && (
+                  <p className="mt-1 text-[11px] text-stone-400">เลือกไว้ {carPhotoFiles.length} รูป</p>
+                )}
               </div>
               <button type="submit" disabled={uploadingPhoto} className="w-full rounded-lg py-2.5 text-sm font-bold text-white disabled:opacity-50" style={{ background: PLATE_RED }}>
                 {uploadingPhoto ? "กำลังอัปโหลดรูป..." : "เพิ่มรถ"}
@@ -936,6 +980,41 @@ export default function Dashboard() {
                   </div>
                 </div>
                 <button onClick={closeCarDetail}><X size={18} className="text-stone-400" /></button>
+              </div>
+
+              <div className="mt-4 rounded-lg border border-black/5 p-3" style={{ background: PAPER }}>
+                <p className="mb-1.5 flex items-center justify-between text-xs font-semibold" style={{ color: INK }}>
+                  <span>รูปภาพรถคันนี้ ({carPhotos(car).length}/10)</span>
+                </p>
+                {carPhotos(car).length > 0 && (
+                  <div className="mb-2 flex flex-wrap gap-2">
+                    {carPhotos(car).map((p, i) => (
+                      <div key={i} className="group relative h-14 w-14 overflow-hidden rounded-lg border border-black/10">
+                        <img src={p} alt={`รูปที่ ${i + 1}`} className="h-full w-full object-cover" />
+                        <button
+                          onClick={() => removePhotoFromCar(car, p)}
+                          className="absolute inset-0 flex items-center justify-center bg-black/50 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                          title="ลบรูปนี้"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {carPhotos(car).length < 10 && (
+                  <label className="flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-black/15 bg-white px-3 py-2 text-xs font-semibold" style={{ color: INK }}>
+                    {addingPhotosTo ? "กำลังอัปโหลด..." : "+ เพิ่มรูป"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      disabled={addingPhotosTo}
+                      className="hidden"
+                      onChange={(e) => { addPhotosToCar(car, e.target.files); e.target.value = ""; }}
+                    />
+                  </label>
+                )}
               </div>
 
               <div className="mt-4 flex items-center justify-between">
