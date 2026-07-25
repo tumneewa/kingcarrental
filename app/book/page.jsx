@@ -6,9 +6,10 @@ import generatePromptPayPayload from "promptpay-qr";
 import QRCode from "qrcode";
 import { supabase } from "../../lib/supabaseClient";
 import { todayISO, daysBetween, money, formatDate, dateISO, buildMonthGrid } from "../../lib/utils";
-import { SHOP_PROMPTPAY_ID, SHOP_DEPOSIT_AMOUNT } from "../../lib/shopConfig";
+import { SHOP_PROMPTPAY_ID, SHOP_DEPOSIT_AMOUNT, SHOP_LOGO_URL } from "../../lib/shopConfig";
 import { t, useLang, localeFor } from "../../lib/i18n";
 import LangSwitcher from "../../components/LangSwitcher";
+import PhotoThumb from "../../components/PhotoThumb";
 import { Phone, User, Loader2, CheckCircle2, Car as CarIcon, QrCode, Upload } from "lucide-react";
 
 const INK = "#262626";
@@ -34,17 +35,6 @@ function Plate({ plate, province }) {
         {plate}
       </span>
       <span className="text-[9px] text-white/85">{province}</span>
-    </div>
-  );
-}
-
-function CarPhoto({ car, className }) {
-  if (car.photo_url) {
-    return <img src={car.photo_url} alt={`${car.brand} ${car.model}`} className={className} />;
-  }
-  return (
-    <div className={`flex items-center justify-center bg-[#EDEDEA] ${className}`}>
-      <CarIcon size={28} className="text-[#B4B4AC]" />
     </div>
   );
 }
@@ -254,12 +244,16 @@ function BookingContent() {
     <div className="paper-bg min-h-screen w-full" style={{ fontFamily: "'Noto Sans Thai', sans-serif" }}>
       <header className="flex items-center justify-between px-5 py-4">
         <div className="flex items-center gap-2">
-          <div
-            className="flex h-8 w-11 items-center justify-center rounded-[3px] border-2 border-white text-[9px] font-bold text-white"
-            style={{ background: `linear-gradient(180deg, ${RED} 0%, ${RED_DARK} 100%)`, fontFamily: "'IBM Plex Mono', monospace", boxShadow: "0 0 0 1px rgba(0,0,0,0.15)" }}
-          >
-            รถเช่า
-          </div>
+          {SHOP_LOGO_URL ? (
+            <img src={SHOP_LOGO_URL} alt="โลโก้ร้าน" className="h-9 w-auto rounded-[3px] object-contain" />
+          ) : (
+            <div
+              className="flex h-8 w-11 items-center justify-center rounded-[3px] border-2 border-white text-[9px] font-bold text-white"
+              style={{ background: `linear-gradient(180deg, ${RED} 0%, ${RED_DARK} 100%)`, fontFamily: "'IBM Plex Mono', monospace", boxShadow: "0 0 0 1px rgba(0,0,0,0.15)" }}
+            >
+              รถเช่า
+            </div>
+          )}
           <div>
             <p className="text-sm font-bold leading-tight" style={{ color: INK }}>{t(lang, "bookingPageTitle")}</p>
             <p className="text-[11px] leading-tight text-stone-400">{t(lang, "bookingPageSub")}</p>
@@ -278,7 +272,7 @@ function BookingContent() {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {cars.map((c) => (
                 <button key={c.id} onClick={() => openCar(c.id)} className="overflow-hidden rounded-xl border border-black/5 bg-white text-left shadow-sm transition-shadow hover:shadow-md">
-                  <CarPhoto car={c} className="h-32 w-full object-cover" />
+                  <PhotoThumb car={c} className="h-32 w-full" />
                   <div className="p-4">
                     <Plate plate={c.plate} province={c.province} />
                     <p className="mt-3 text-sm font-bold" style={{ color: INK }}>{c.brand} {c.model}</p>
@@ -295,7 +289,7 @@ function BookingContent() {
           </>
         ) : (
           <div className="overflow-hidden rounded-xl bg-white shadow-sm">
-            <CarPhoto car={selectedCar} className="h-40 w-full object-cover" />
+            <PhotoThumb car={selectedCar} className="h-40 w-full" />
             <div className="p-5">
             <button onClick={() => setSelectedCarId(null)} className="mb-3 text-xs font-semibold text-stone-400 hover:text-stone-600">{t(lang, "backToSelect")}</button>
 
