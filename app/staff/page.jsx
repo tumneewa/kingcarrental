@@ -148,15 +148,25 @@ export default function Dashboard() {
     })();
   }, [session]);
 
+  const [profileError, setProfileError] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
+
   const saveProfileName = async (e) => {
     e.preventDefault();
     if (!nameInput.trim()) return;
+    setSavingProfile(true);
+    setProfileError("");
     const { data, error } = await supabase
       .from("profiles")
       .upsert({ id: session.user.id, email: session.user.email, full_name: nameInput.trim() })
       .select()
       .maybeSingle();
-    if (!error) setProfile(data);
+    setSavingProfile(false);
+    if (error) {
+      setProfileError(error.message || "บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+      return;
+    }
+    setProfile(data);
   };
 
   // ---- fetch shared data ----
@@ -372,7 +382,7 @@ export default function Dashboard() {
   // ---- loading / auth gates ----
   if (session === undefined) {
     return (
-      <div className="flex min-h-screen w-full items-center justify-center" style={{ background: PAPER }}>
+      <div className="paper-bg flex min-h-screen w-full items-center justify-center">
         <div className="flex items-center gap-2 text-sm text-stone-500">
           <Loader2 size={16} className="animate-spin" /> กำลังโหลด...
         </div>
@@ -383,7 +393,7 @@ export default function Dashboard() {
 
   if (!profileLoaded) {
     return (
-      <div className="flex min-h-screen w-full items-center justify-center" style={{ background: PAPER }}>
+      <div className="paper-bg flex min-h-screen w-full items-center justify-center">
         <div className="flex items-center gap-2 text-sm text-stone-500">
           <Loader2 size={16} className="animate-spin" /> กำลังโหลด...
         </div>
@@ -393,7 +403,7 @@ export default function Dashboard() {
 
   if (profile === null || (profile && !profile.full_name)) {
     return (
-      <div className="flex min-h-screen w-full items-center justify-center p-4" style={{ background: PAPER }}>
+      <div className="paper-bg flex min-h-screen w-full items-center justify-center p-4">
         <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-sm">
           <p className="text-sm font-bold" style={{ color: INK }}>ยินดีต้อนรับ 👋</p>
           <p className="mt-1 text-xs text-stone-500">กรอกชื่อของคุณ เพื่อให้ทีมรู้ว่าใครทำรายการอะไรบ้าง</p>
@@ -405,8 +415,11 @@ export default function Dashboard() {
               placeholder="ชื่อของคุณ"
               className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm outline-none"
             />
-            <button type="submit" className="w-full rounded-lg py-2.5 text-sm font-bold text-white" style={{ background: PLATE_RED }}>
-              เริ่มใช้งาน
+            {profileError && (
+              <p className="text-xs font-medium text-red-600">เกิดข้อผิดพลาด: {profileError}</p>
+            )}
+            <button type="submit" disabled={savingProfile} className="w-full rounded-lg py-2.5 text-sm font-bold text-white disabled:opacity-50" style={{ background: PLATE_RED }}>
+              {savingProfile ? "กำลังบันทึก..." : "เริ่มใช้งาน"}
             </button>
           </form>
         </div>
@@ -416,7 +429,7 @@ export default function Dashboard() {
 
   if (!dataLoaded) {
     return (
-      <div className="flex min-h-screen w-full items-center justify-center" style={{ background: PAPER }}>
+      <div className="paper-bg flex min-h-screen w-full items-center justify-center">
         <div className="flex items-center gap-2 text-sm text-stone-500">
           <Loader2 size={16} className="animate-spin" /> กำลังโหลด...
         </div>
@@ -425,7 +438,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="flex min-h-screen w-full" style={{ background: PAPER, fontFamily: "'Noto Sans Thai', sans-serif" }}>
+    <div className="paper-bg flex min-h-screen w-full" style={{ fontFamily: "'Noto Sans Thai', sans-serif" }}>
       {/* ---------- sidebar ---------- */}
       <aside className="flex w-60 flex-shrink-0 flex-col gap-1 px-4 py-6" style={{ background: INK }}>
         <div className="mb-6 flex items-center gap-2 px-1">
