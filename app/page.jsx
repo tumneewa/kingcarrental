@@ -6,6 +6,7 @@ import { money } from "../lib/utils";
 import { SHOP_NAME, SHOP_TAGLINE, SHOP_ABOUT, SHOP_ADDRESS, SHOP_PHONE, SHOP_HOURS, SHOP_LOGO_URL, SHOP_HERO_IMAGE_URL } from "../lib/shopConfig";
 import { t, useLang } from "../lib/i18n";
 import LangSwitcher from "../components/LangSwitcher";
+import PhotoThumb from "../components/PhotoThumb";
 import { MapPin, Phone as PhoneIcon, Clock, Car as CarIcon, ShieldCheck, BadgeCheck } from "lucide-react";
 
 const INK = "#262626";
@@ -120,13 +121,7 @@ export default function HomePage() {
           <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {cars.map((c) => (
               <div key={c.id} className="overflow-hidden rounded-xl border border-black/5 bg-white shadow-sm">
-                {c.photo_url ? (
-                  <img src={c.photo_url} alt={`${c.brand} ${c.model}`} className="h-36 w-full object-cover" />
-                ) : (
-                  <div className="flex h-36 w-full items-center justify-center bg-[#EDEDEA]">
-                    <CarIcon size={30} className="text-[#B4B4AC]" />
-                  </div>
-                )}
+                <PhotoThumb car={c} className="h-36 w-full" />
                 <div className="p-4">
                   <Plate plate={c.plate} province={c.province} />
                   <p className="mt-3 text-sm font-bold" style={{ color: INK }}>{c.brand} {c.model}</p>
