@@ -48,6 +48,9 @@ export default function HomePage() {
 
   return (
     <div className="paper-bg" style={{ fontFamily: "'Noto Sans Thai', sans-serif" }}>
+      {/* ---------- แถบสีบางๆ บนสุด ---------- */}
+      <div className="h-1.5 w-full" style={{ background: `linear-gradient(90deg, ${RED} 0%, ${RED_DARK} 100%)` }} />
+
       {/* ---------- header ---------- */}
       <header className="mx-auto flex max-w-5xl items-center justify-between px-5 py-5">
         <div className="flex items-center gap-2">
@@ -161,6 +164,9 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ---------- แถบสีบางๆ เหนือ footer ---------- */}
+      <div className="h-1.5 w-full" style={{ background: `linear-gradient(90deg, ${RED} 0%, ${RED_DARK} 100%)` }} />
 
       {/* ---------- footer ---------- */}
       <footer className="border-t border-black/5 px-5 py-6 text-center text-xs text-stone-400">
