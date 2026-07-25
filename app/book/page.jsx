@@ -188,7 +188,7 @@ function BookingContent() {
 
   if (!loaded) {
     return (
-      <div className="flex min-h-screen items-center justify-center" style={{ background: PAPER }}>
+      <div className="paper-bg flex min-h-screen items-center justify-center">
         <div className="flex items-center gap-2 text-sm text-stone-500"><Loader2 size={16} className="animate-spin" /> {t(lang, "loading")}</div>
       </div>
     );
@@ -196,7 +196,7 @@ function BookingContent() {
 
   if (done) {
     return (
-      <div className="flex min-h-screen items-center justify-center p-4" style={{ background: PAPER }}>
+      <div className="paper-bg flex min-h-screen items-center justify-center p-4">
         <div className="w-full max-w-sm rounded-xl bg-white p-6 text-center shadow-sm">
           <CheckCircle2 size={36} style={{ color: RED }} className="mx-auto" />
           <p className="mt-3 text-sm font-bold" style={{ color: INK }}>{t(lang, "bookingSent")}</p>
@@ -251,7 +251,7 @@ function BookingContent() {
   const grid = selectedCarId ? buildMonthGrid(calendarMonth) : [];
 
   return (
-    <div className="min-h-screen w-full" style={{ background: PAPER, fontFamily: "'Noto Sans Thai', sans-serif" }}>
+    <div className="paper-bg min-h-screen w-full" style={{ fontFamily: "'Noto Sans Thai', sans-serif" }}>
       <header className="flex items-center justify-between px-5 py-4">
         <div className="flex items-center gap-2">
           <div
