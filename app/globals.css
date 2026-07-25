@@ -14,3 +14,10 @@ body {
 input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(0.4);
 }
+
+/* ลายพื้นหลังจุดจางๆ เรียบๆ แทนสีเทาอ่อนเปล่าๆ ใช้กับพื้นหลังหลักของทุกหน้า */
+.paper-bg {
+  background-color: #F2F2F0;
+  background-image: radial-gradient(rgba(38, 38, 38, 0.05) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
