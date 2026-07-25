@@ -49,7 +49,7 @@ export default function HomePage() {
   return (
     <div className="paper-bg" style={{ fontFamily: "'Noto Sans Thai', sans-serif" }}>
       {/* ---------- แถบสีบางๆ บนสุด ---------- */}
-      <div className="h-1.5 w-full" style={{ background: `linear-gradient(90deg, ${RED} 0%, ${RED_DARK} 100%)` }} />
+      <div className="h-[30px] w-full" style={{ background: `linear-gradient(90deg, ${RED} 0%, ${RED_DARK} 100%)` }} />
 
       {/* ---------- header ---------- */}
       <header className="mx-auto flex max-w-5xl items-center justify-between px-5 py-5">
