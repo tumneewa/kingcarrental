@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import generatePromptPayPayload from "promptpay-qr";
 import QRCode from "qrcode";
 import { supabase } from "../../lib/supabaseClient";
-import { todayISO, daysBetween, money, formatDate, formatTime, shiftTime, dateISO, buildMonthGrid } from "../../lib/utils";
+import { todayISO, daysBetween, money, formatDate, formatTime, shiftTime, calcRentalTotal, dateISO, buildMonthGrid } from "../../lib/utils";
 import { SHOP_PROMPTPAY_ID, SHOP_DEPOSIT_AMOUNT, SHOP_LOGO_URL } from "../../lib/shopConfig";
 import { t, useLang, localeFor } from "../../lib/i18n";
 import LangSwitcher from "../../components/LangSwitcher";
@@ -141,7 +141,7 @@ function BookingContent() {
   };
 
   const nDaysSel = rangeStart && rangeEnd ? daysBetween(rangeStart, rangeEnd) : 0;
-  const totalSel = selectedCar && nDaysSel ? nDaysSel * selectedCar.price_per_day : 0;
+  const totalSel = selectedCar && nDaysSel ? calcRentalTotal(selectedCar, nDaysSel) : 0;
 
   const submitRequest = async (e) => {
     e.preventDefault();
