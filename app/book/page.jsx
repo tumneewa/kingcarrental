@@ -88,6 +88,20 @@ function BookingContent() {
     })();
   }, [preselectCarId]);
 
+  // สร้าง QR พร้อมเพย์ไว้ล่วงหน้าตั้งแต่เปิดหน้า (ไม่ต้องรอจองสำเร็จก่อน เพราะ QR ไม่ได้ผูกกับ booking ใดๆ)
+  useEffect(() => {
+    if (!SHOP_PROMPTPAY_ID) return;
+    (async () => {
+      try {
+        const payload = generatePromptPayPayload(SHOP_PROMPTPAY_ID, { amount: SHOP_DEPOSIT_AMOUNT });
+        const url = await QRCode.toDataURL(payload, { margin: 1, width: 240 });
+        setQrDataUrl(url);
+      } catch (qrErr) {
+        console.error("สร้างคิวอาร์โค้ดไม่สำเร็จ", qrErr);
+      }
+    })();
+  }, []);
+
   const selectedCar = cars.find((c) => c.id === selectedCarId);
   const todayStr = todayISO();
 
@@ -129,6 +143,10 @@ function BookingContent() {
   const submitRequest = async (e) => {
     e.preventDefault();
     if (!selectedCar || !rangeStart || !rangeEnd || !name.trim() || !phone.trim()) return;
+    if (SHOP_PROMPTPAY_ID && !slipFile) {
+      setSubmitError(t(lang, "slipRequiredHint"));
+      return;
+    }
     setSubmitting(true);
     setSubmitError("");
     const { data, error } = await supabase.rpc("request_booking", {
@@ -140,25 +158,32 @@ function BookingContent() {
       p_start_time: pickupTime,
       p_end_time: returnTime,
     });
-    setSubmitting(false);
     if (error) {
+      setSubmitting(false);
       setSubmitError(t(lang, "submitErrorGeneric"));
       return;
     }
-    setBookingId(data);
+    const newBookingId = data;
+    setBookingId(newBookingId);
     setConfirmedTotal(totalSel);
-    setPaymentNotified(false);
-    setQrDataUrl("");
-    setSlipFile(null);
-    if (SHOP_PROMPTPAY_ID) {
-      try {
-        const payload = generatePromptPayPayload(SHOP_PROMPTPAY_ID, { amount: SHOP_DEPOSIT_AMOUNT });
-        const url = await QRCode.toDataURL(payload, { margin: 1, width: 240 });
-        setQrDataUrl(url);
-      } catch (qrErr) {
-        console.error("สร้างคิวอาร์โค้ดไม่สำเร็จ", qrErr);
+
+    // อัปโหลดสลิปและแจ้งชำระเงินทันที เพราะบังคับแนบมาตั้งแต่ตอนกดจองแล้ว
+    if (slipFile) {
+      setUploadingSlip(true);
+      const ext = slipFile.name.split(".").pop();
+      const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from("payment-slips").upload(path, slipFile);
+      let slipUrl = null;
+      if (!uploadError) {
+        const { data: pub } = supabase.storage.from("payment-slips").getPublicUrl(path);
+        slipUrl = pub.publicUrl;
       }
+      setUploadingSlip(false);
+      await supabase.rpc("notify_payment", { p_booking_id: newBookingId, p_slip_url: slipUrl });
+      setPaymentNotified(true);
     }
+
+    setSubmitting(false);
     setDone(true);
   };
 
@@ -234,7 +259,7 @@ function BookingContent() {
           )}
 
           <button
-            onClick={() => { setDone(false); setSelectedCarId(null); setName(""); setPhone(""); setRangeStart(null); setRangeEnd(null); }}
+            onClick={() => { setDone(false); setSelectedCarId(null); setName(""); setPhone(""); setRangeStart(null); setRangeEnd(null); setSlipFile(null); setPaymentNotified(false); setBookingId(null); setSubmitError(""); }}
             className="mt-4 rounded-lg px-4 py-2 text-xs font-semibold text-white"
             style={{ background: RED }}
           >
@@ -408,6 +433,30 @@ function BookingContent() {
                       <input required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t(lang, "phonePlaceholder")} className="w-full text-sm outline-none" />
                     </div>
 
+                    {SHOP_PROMPTPAY_ID && (
+                      <div className="rounded-lg border border-black/10 bg-white p-3 text-center">
+                        <p className="flex items-center justify-center gap-1.5 text-xs font-semibold" style={{ color: INK }}>
+                          <QrCode size={14} /> {t(lang, "scanPay")}
+                        </p>
+                        {qrDataUrl ? (
+                          <img src={qrDataUrl} alt="พร้อมเพย์ QR" className="mx-auto mt-2 h-40 w-40" />
+                        ) : (
+                          <div className="mx-auto mt-2 flex h-40 w-40 items-center justify-center text-stone-300">
+                            <Loader2 size={20} className="animate-spin" />
+                          </div>
+                        )}
+                        <p className="mt-1.5 text-base font-bold" style={{ color: RED, fontFamily: "'IBM Plex Mono', monospace" }}>{money(SHOP_DEPOSIT_AMOUNT)}</p>
+                        <p className="text-[11px] text-stone-400">{t(lang, "depositNote", { total: money(totalSel) })}</p>
+
+                        <label className="mt-3 flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-black/15 bg-white px-3 py-2.5 text-xs font-semibold" style={{ color: INK }}>
+                          <Upload size={13} />
+                          {slipFile ? slipFile.name : t(lang, "attachSlip")}
+                          <input type="file" accept="image/*" required className="hidden" onChange={(e) => setSlipFile(e.target.files?.[0] || null)} />
+                        </label>
+                        {!slipFile && <p className="mt-1.5 text-[10px] text-stone-400">{t(lang, "slipRequiredHint")}</p>}
+                      </div>
+                    )}
+
                     <div className="flex items-center justify-between pt-1">
                       <span className="text-xs text-stone-500">{t(lang, "estimatedTotal")}</span>
                       <span className="text-base font-bold" style={{ color: RED, fontFamily: "'IBM Plex Mono', monospace" }}>{money(totalSel)}</span>
@@ -415,8 +464,13 @@ function BookingContent() {
 
                     {submitError && <p className="text-xs font-medium text-red-600">{submitError}</p>}
 
-                    <button type="submit" disabled={submitting} className="w-full rounded-lg py-2.5 text-sm font-bold text-white disabled:opacity-50" style={{ background: RED }}>
-                      {submitting ? t(lang, "submitting") : t(lang, "submitBooking")}
+                    <button
+                      type="submit"
+                      disabled={submitting || uploadingSlip || (!!SHOP_PROMPTPAY_ID && !slipFile)}
+                      className="w-full rounded-lg py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                      style={{ background: RED }}
+                    >
+                      {uploadingSlip ? t(lang, "uploadingSlip") : submitting ? t(lang, "submitting") : t(lang, "submitBooking")}
                     </button>
                     <p className="text-center text-[10px] text-stone-400">{t(lang, "notConfirmedNote")}</p>
                   </form>
