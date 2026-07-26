@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
-import { todayISO, daysBetween, money, formatDate, formatTime, dateISO, buildMonthGrid, hasTimeConflict, calcRentalTotal } from "../../lib/utils";
+import { todayISO, daysBetween, money, formatDate, formatTime, dateISO, buildMonthGrid, hasTimeConflict, calcRentalTotalWithTime } from "../../lib/utils";
 import { SHOP_LOGO_URL, SHOP_NAME, SHOP_DEPOSIT_AMOUNT } from "../../lib/shopConfig";
 import PhotoThumb, { carPhotos } from "../../components/PhotoThumb";
 import {
@@ -202,7 +202,7 @@ export default function Dashboard() {
 
   // ---- add car ----
   const [showAddCar, setShowAddCar] = useState(false);
-  const [carForm, setCarForm] = useState({ plate: "", province: "กรุงเทพมหานคร", brand: "", model: "", type: "รถเล็ก", price_per_day: "", price_3days: "", price_7days: "", price_monthly: "", deposit_amount: "" });
+  const [carForm, setCarForm] = useState({ plate: "", province: "กรุงเทพมหานคร", brand: "", model: "", type: "รถเล็ก", price_per_day: "", price_3days: "", price_7days: "", price_monthly: "", overtime_hourly_rate: "", deposit_amount: "" });
   const [carPhotoFiles, setCarPhotoFiles] = useState([]); // สูงสุด 10 ไฟล์
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
@@ -237,11 +237,12 @@ export default function Dashboard() {
       price_3days: carForm.price_3days ? Number(carForm.price_3days) : 0,
       price_7days: carForm.price_7days ? Number(carForm.price_7days) : 0,
       price_monthly: carForm.price_monthly ? Number(carForm.price_monthly) : 0,
+      overtime_hourly_rate: carForm.overtime_hourly_rate ? Number(carForm.overtime_hourly_rate) : 0,
       deposit_amount: carForm.deposit_amount ? Number(carForm.deposit_amount) : 0,
       status: "available",
       photos,
     });
-    setCarForm({ plate: "", province: "กรุงเทพมหานคร", brand: "", model: "", type: "รถเล็ก", price_per_day: "", price_3days: "", price_7days: "", price_monthly: "", deposit_amount: "" });
+    setCarForm({ plate: "", province: "กรุงเทพมหานคร", brand: "", model: "", type: "รถเล็ก", price_per_day: "", price_3days: "", price_7days: "", price_monthly: "", overtime_hourly_rate: "", deposit_amount: "" });
     setCarPhotoFiles([]);
     setShowAddCar(false);
     fetchAll();
@@ -298,6 +299,7 @@ export default function Dashboard() {
       price_3days: car.price_3days ? String(car.price_3days) : "",
       price_7days: car.price_7days ? String(car.price_7days) : "",
       price_monthly: car.price_monthly ? String(car.price_monthly) : "",
+      overtime_hourly_rate: car.overtime_hourly_rate ? String(car.overtime_hourly_rate) : "",
       deposit_amount: car.deposit_amount ? String(car.deposit_amount) : "",
     });
     setEditingCarDetails(true);
@@ -314,6 +316,7 @@ export default function Dashboard() {
         price_3days: editCarForm.price_3days ? Number(editCarForm.price_3days) : 0,
         price_7days: editCarForm.price_7days ? Number(editCarForm.price_7days) : 0,
         price_monthly: editCarForm.price_monthly ? Number(editCarForm.price_monthly) : 0,
+        overtime_hourly_rate: editCarForm.overtime_hourly_rate ? Number(editCarForm.overtime_hourly_rate) : 0,
         deposit_amount: editCarForm.deposit_amount ? Number(editCarForm.deposit_amount) : 0,
       })
       .eq("id", carId);
@@ -400,9 +403,12 @@ export default function Dashboard() {
   const [bookingConflictError, setBookingConflictError] = useState("");
 
   const availableCars = cars.filter((c) => c.status === "available");
-  const nDays = daysBetween(bookingStart, bookingEnd);
   const selectedCar = cars.find((c) => c.id === bookingCarId);
-  const total = selectedCar ? calcRentalTotal(selectedCar, nDays) : 0;
+  const bookingCalc = selectedCar
+    ? calcRentalTotalWithTime(selectedCar, bookingStart, bookingStartTime, bookingEnd, bookingEndTime)
+    : { total: 0, days: 0, extraHours: 0, surcharge: 0 };
+  const nDays = bookingCalc.days;
+  const total = bookingCalc.total;
 
   const filteredMembers = members.filter(
     (m) => m.name.toLowerCase().includes(memberQuery.toLowerCase()) || m.phone.includes(memberQuery)
@@ -844,9 +850,12 @@ export default function Dashboard() {
               </div>
 
               <div className="mt-4 flex items-center justify-between rounded-lg p-3" style={{ background: PAPER }}>
-                <div className="text-xs text-stone-500">{selectedCar ? `${nDays} วัน × ${money(Math.round(total / nDays))}/วัน` : "เลือกรถเพื่อคำนวณราคา"}</div>
+                <div className="text-xs text-stone-500">{selectedCar ? `${nDays} วัน × ${money(Math.round((total - bookingCalc.surcharge) / nDays))}/วัน` : "เลือกรถเพื่อคำนวณราคา"}</div>
                 <div className="text-lg font-bold" style={{ color: PLATE_RED, fontFamily: "'IBM Plex Mono', monospace" }}>{money(total)}</div>
               </div>
+              {bookingCalc.extraHours > 0 && (
+                <p className="mt-1 text-[11px] text-stone-400">รวมค่าปรับคืนช้า {Math.round(bookingCalc.extraHours * 10) / 10} ชม. ({money(bookingCalc.surcharge)})</p>
+              )}
 
               {bookingConflictError && <p className="mt-2 text-xs font-medium text-red-600">{bookingConflictError}</p>}
 
@@ -1133,6 +1142,10 @@ export default function Dashboard() {
                 <p className="mt-1 text-[10px] text-stone-400">เว้นว่างช่องไหนไว้ได้ ระบบจะใช้ราคาช่วงที่ใกล้กว่าแทนให้อัตโนมัติ</p>
               </div>
               <div>
+                <input type="number" min="0" placeholder="ค่าปรับ/ชม. คืนช้า (ไม่บังคับ)" value={carForm.overtime_hourly_rate} onChange={(e) => setCarForm({ ...carForm, overtime_hourly_rate: e.target.value })} className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm outline-none" />
+                <p className="mt-1 text-[10px] text-stone-400">กรณีคืนรถช้าเกิน 60 นาทีแต่ไม่เกิน 4 ชม. เว้นว่างไว้ได้ ระบบจะคิดเป็น 1/4 ของราคาต่อวันแทน</p>
+              </div>
+              <div>
                 <input type="number" min="0" placeholder="ค่ามัดจำ/ประกันความเสียหาย (ไม่บังคับ)" value={carForm.deposit_amount} onChange={(e) => setCarForm({ ...carForm, deposit_amount: e.target.value })} className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm outline-none" />
                 <p className="mt-1 text-[10px] text-stone-400">เว้นว่างไว้ได้ ถ้าเว้นว่าง ระบบจะใช้ค่ามัดจำเริ่มต้นของร้านแทน</p>
               </div>
@@ -1201,8 +1214,11 @@ export default function Dashboard() {
           else setRangeEnd(iso);
         };
 
-        const nDaysSel = rangeStart && rangeEnd ? daysBetween(rangeStart, rangeEnd) : 0;
-        const totalSel = calcRentalTotal(car, nDaysSel);
+        const calCalc = rangeStart && rangeEnd
+          ? calcRentalTotalWithTime(car, rangeStart, calStartTime, rangeEnd, calEndTime)
+          : { total: 0, days: 0, extraHours: 0, surcharge: 0 };
+        const nDaysSel = calCalc.days;
+        const totalSel = calCalc.total;
         const calFilteredMembers = members.filter((m) => m.name.toLowerCase().includes(calMemberQuery.toLowerCase()) || m.phone.includes(calMemberQuery));
 
         const confirmCalendarBooking = async () => {
@@ -1271,6 +1287,7 @@ export default function Dashboard() {
                     <input type="number" min="0" placeholder="ราคา/วัน — 3-6 วัน (ไม่บังคับ)" value={editCarForm.price_3days} onChange={(e) => setEditCarForm({ ...editCarForm, price_3days: e.target.value })} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none" />
                     <input type="number" min="0" placeholder="ราคา/วัน — 7-29 วัน (ไม่บังคับ)" value={editCarForm.price_7days} onChange={(e) => setEditCarForm({ ...editCarForm, price_7days: e.target.value })} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none" />
                     <input type="number" min="0" placeholder="ราคาเหมา/เดือน (ไม่บังคับ)" value={editCarForm.price_monthly} onChange={(e) => setEditCarForm({ ...editCarForm, price_monthly: e.target.value })} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none" />
+                    <input type="number" min="0" placeholder="ค่าปรับ/ชม. คืนช้า (ไม่บังคับ)" value={editCarForm.overtime_hourly_rate} onChange={(e) => setEditCarForm({ ...editCarForm, overtime_hourly_rate: e.target.value })} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none" />
                     <input type="number" min="0" placeholder="ค่ามัดจำ/ประกันความเสียหาย (ไม่บังคับ)" value={editCarForm.deposit_amount} onChange={(e) => setEditCarForm({ ...editCarForm, deposit_amount: e.target.value })} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none" />
                     <div className="flex gap-2 pt-1">
                       <button onClick={() => setEditingCarDetails(false)} className="flex-1 rounded-lg py-2 text-xs font-semibold text-stone-500" style={{ background: "white", border: "1px solid rgba(0,0,0,0.1)" }}>
@@ -1396,6 +1413,9 @@ export default function Dashboard() {
                         <span className="text-xs text-stone-500">ยอดรวม</span>
                         <span className="text-base font-bold" style={{ color: PLATE_RED, fontFamily: "'IBM Plex Mono', monospace" }}>{money(totalSel)}</span>
                       </div>
+                      {calCalc.extraHours > 0 && (
+                        <p className="text-[10px] text-stone-400">รวมค่าปรับคืนช้า {Math.round(calCalc.extraHours * 10) / 10} ชม. ({money(calCalc.surcharge)})</p>
+                      )}
                       {bookingConflictError && <p className="mt-1.5 text-[11px] font-medium text-red-600">{bookingConflictError}</p>}
                       <button onClick={confirmCalendarBooking} disabled={!calMemberId} className="mt-2 w-full rounded-lg py-2 text-xs font-bold text-white disabled:opacity-40" style={{ background: PLATE_RED }}>
                         ยืนยันการจอง
