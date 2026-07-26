@@ -28,6 +28,8 @@ import {
   CalendarDays,
   ArrowRightCircle,
   ArrowLeftCircle,
+  Copy,
+  ExternalLink,
 } from "lucide-react";
 
 // ---------- palette / tokens ----------
@@ -380,6 +382,18 @@ export default function Dashboard() {
 
   // ---- add member ----
   const [showAddMember, setShowAddMember] = useState(false);
+  const [copiedBookingId, setCopiedBookingId] = useState(null);
+
+  const copyReceiptLink = async (bookingId) => {
+    const url = `${window.location.origin}/booking/${bookingId}`;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      window.prompt("คัดลอกลิงก์นี้ไปส่งให้ลูกค้า:", url);
+    }
+    setCopiedBookingId(bookingId);
+    setTimeout(() => setCopiedBookingId(null), 2000);
+  };
   const [memberForm, setMemberForm] = useState({ name: "", phone: "" });
 
   const submitMember = async (e) => {
@@ -996,6 +1010,7 @@ export default function Dashboard() {
                       <th className="px-4 py-3 font-medium">การชำระเงิน</th>
                       <th className="px-4 py-3 font-medium">จองโดย</th>
                       <th className="px-4 py-3 font-medium">สถานะ</th>
+                      <th className="px-4 py-3 font-medium">ใบจอง</th>
                       <th className="px-4 py-3 font-medium"></th>
                     </tr>
                   </thead>
@@ -1038,6 +1053,16 @@ export default function Dashboard() {
                           }}>
                             {b.status === "pending" ? "รอยืนยัน" : b.status === "active" ? "กำลังเช่า" : b.status === "completed" ? "คืนแล้ว" : "ยกเลิก"}
                           </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => copyReceiptLink(b.id)} title="คัดลอกลิงก์ใบจอง" className="flex items-center gap-1 text-[11px] font-semibold" style={{ color: copiedBookingId === b.id ? "#3F7A4E" : PLATE_RED }}>
+                              <Copy size={12} /> {copiedBookingId === b.id ? "คัดลอกแล้ว ✓" : "คัดลอกลิงก์"}
+                            </button>
+                            <a href={`/booking/${b.id}`} target="_blank" rel="noreferrer" title="เปิดดูใบจอง" className="text-stone-400 hover:text-stone-600">
+                              <ExternalLink size={13} />
+                            </a>
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-right">
                           {b.status === "pending" && (
