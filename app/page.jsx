@@ -69,6 +69,7 @@ export default function HomePage() {
         </div>
         <div className="flex items-center gap-4">
           <LangSwitcher lang={lang} setLang={setLang} />
+          <a href="/my-bookings" className="text-xs font-medium text-stone-400 hover:text-stone-600">{t(lang, "myBookings")}</a>
           <a href="/staff/login" className="text-xs font-medium text-stone-400 hover:text-stone-600">{t(lang, "staffLogin")}</a>
           <a href="/book" className="rounded-lg px-4 py-2 text-xs font-bold text-white" style={{ background: RED }}>{t(lang, "bookNow")}</a>
         </div>
