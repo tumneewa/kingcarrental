@@ -121,7 +121,7 @@ export default function HomePage() {
           <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {cars.map((c) => (
               <div key={c.id} className="overflow-hidden rounded-xl border border-black/5 bg-white shadow-sm">
-                <PhotoThumb car={c} className="h-36 w-full" />
+                <PhotoThumb car={c} className="aspect-square w-full" />
                 <div className="p-4">
                   <Plate plate={c.plate} province={c.province} />
                   <p className="mt-3 text-sm font-bold" style={{ color: INK }}>{c.brand} {c.model}</p>
