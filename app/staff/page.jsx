@@ -709,7 +709,7 @@ export default function Dashboard() {
               <div className="mt-5 grid grid-cols-3 gap-4">
                 {cars.map((c) => (
                   <div key={c.id} onClick={() => openCarDetail(c.id)} className="cursor-pointer overflow-hidden rounded-xl border border-black/5 bg-white shadow-sm transition-shadow hover:shadow-md">
-                    <PhotoThumb car={c} className="h-28 w-full" />
+                    <PhotoThumb car={c} className="aspect-square w-full" />
                     <div className="p-4">
                     <div className="flex items-start justify-between">
                       <Plate plate={c.plate} province={c.province} />
