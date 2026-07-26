@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
-import { todayISO, daysBetween, money, formatDate, formatTime, dateISO, buildMonthGrid } from "../../lib/utils";
+import { todayISO, daysBetween, money, formatDate, formatTime, dateISO, buildMonthGrid, hasTimeConflict } from "../../lib/utils";
 import { SHOP_LOGO_URL, SHOP_NAME } from "../../lib/shopConfig";
 import PhotoThumb, { carPhotos } from "../../components/PhotoThumb";
 import {
@@ -322,6 +322,7 @@ export default function Dashboard() {
     setCalEndTime("10:00");
     setEditingCarDetails(false);
     setEditCarForm(null);
+    setBookingConflictError("");
   };
   const closeCarDetail = () => {
     setDetailCarId(null);
@@ -333,6 +334,7 @@ export default function Dashboard() {
     setCalEndTime("10:00");
     setEditingCarDetails(false);
     setEditCarForm(null);
+    setBookingConflictError("");
   };
 
   const buildMonthGrid = (monthDate) => {
@@ -348,8 +350,10 @@ export default function Dashboard() {
     return cells;
   };
 
+  // เช็กเฉพาะวันที่อยู่ "ระหว่างกลาง" ของการจองอื่น เพื่อให้จองวันรับ/คืนชนกับวันคืน/รับของคนอื่นได้
+  // (เช็กเวลาชนกันจริงตอนบันทึกแทน)
   const bookingOnDate = (carId, iso) =>
-    bookings.find((b) => b.car_id === carId && (b.status === "active" || b.status === "pending") && iso >= b.start_date && iso <= b.end_date);
+    bookings.find((b) => b.car_id === carId && (b.status === "active" || b.status === "pending") && iso > b.start_date && iso < b.end_date);
 
   // ---- add member ----
   const [showAddMember, setShowAddMember] = useState(false);
@@ -373,6 +377,7 @@ export default function Dashboard() {
   const [bookingStartTime, setBookingStartTime] = useState("10:00");
   const [bookingEndTime, setBookingEndTime] = useState("10:00");
   const [memberQuery, setMemberQuery] = useState("");
+  const [bookingConflictError, setBookingConflictError] = useState("");
 
   const availableCars = cars.filter((c) => c.status === "available");
   const nDays = daysBetween(bookingStart, bookingEnd);
@@ -385,6 +390,11 @@ export default function Dashboard() {
 
   const createBooking = async () => {
     if (!bookingMemberId || !bookingCarId || !selectedCar) return;
+    setBookingConflictError("");
+    if (hasTimeConflict(bookings, bookingCarId, bookingStart, bookingStartTime, bookingEnd, bookingEndTime)) {
+      setBookingConflictError("ช่วงเวลานี้ชนกับการจองอื่นของรถคันนี้ (ต้องเว้นอย่างน้อย 1 ชม. สำหรับเตรียมรถ) กรุณาเลือกวัน/เวลาใหม่");
+      return;
+    }
     await supabase.from("bookings").insert({
       car_id: bookingCarId,
       member_id: bookingMemberId,
@@ -817,6 +827,8 @@ export default function Dashboard() {
                 <div className="text-lg font-bold" style={{ color: PLATE_RED, fontFamily: "'IBM Plex Mono', monospace" }}>{money(total)}</div>
               </div>
 
+              {bookingConflictError && <p className="mt-2 text-xs font-medium text-red-600">{bookingConflictError}</p>}
+
               <button onClick={createBooking} disabled={!bookingMemberId || !bookingCarId} className="mt-4 w-full rounded-lg py-2.5 text-sm font-bold text-white disabled:opacity-40" style={{ background: PLATE_RED }}>
                 ยืนยันการจอง
               </button>
@@ -1161,6 +1173,11 @@ export default function Dashboard() {
 
         const confirmCalendarBooking = async () => {
           if (!rangeStart || !rangeEnd || !calMemberId) return;
+          if (hasTimeConflict(bookings, car.id, rangeStart, calStartTime, rangeEnd, calEndTime)) {
+            setBookingConflictError("ช่วงเวลานี้ชนกับการจองอื่นของรถคันนี้ (ต้องเว้นอย่างน้อย 1 ชม. สำหรับเตรียมรถ) กรุณาเลือกวัน/เวลาใหม่");
+            return;
+          }
+          setBookingConflictError("");
           await supabase.from("bookings").insert({
             car_id: car.id,
             member_id: calMemberId,
@@ -1341,6 +1358,7 @@ export default function Dashboard() {
                         <span className="text-xs text-stone-500">ยอดรวม</span>
                         <span className="text-base font-bold" style={{ color: PLATE_RED, fontFamily: "'IBM Plex Mono', monospace" }}>{money(totalSel)}</span>
                       </div>
+                      {bookingConflictError && <p className="mt-1.5 text-[11px] font-medium text-red-600">{bookingConflictError}</p>}
                       <button onClick={confirmCalendarBooking} disabled={!calMemberId} className="mt-2 w-full rounded-lg py-2 text-xs font-bold text-white disabled:opacity-40" style={{ background: PLATE_RED }}>
                         ยืนยันการจอง
                       </button>
