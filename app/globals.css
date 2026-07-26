@@ -15,9 +15,16 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(0.4);
 }
 
-/* ลายพื้นหลังจุดจางๆ เรียบๆ แทนสีเทาอ่อนเปล่าๆ ใช้กับพื้นหลังหลักของทุกหน้า */
+/* ลายพื้นหลังจุดจางๆ โทนแดง เข้าธีมร้าน ใช้กับพื้นหลังหลักของทุกหน้า */
 .paper-bg {
   background-color: #F2F2F0;
-  background-image: radial-gradient(rgba(38, 38, 38, 0.05) 1px, transparent 1px);
-  background-size: 22px 22px;
+  background-image: radial-gradient(rgba(192, 57, 43, 0.16) 1.5px, transparent 1.5px);
+  background-size: 20px 20px;
+}
+
+/* ทำให้ปุ่มทุกปุ่มในเว็บเปลี่ยนเป็นเคอร์เซอร์รูปมือเมื่อชี้ (ยกเว้นปุ่มที่ปิดใช้งานอยู่) */
+button:not(:disabled),
+[type="submit"]:not(:disabled),
+[type="button"]:not(:disabled) {
+  cursor: pointer;
 }
