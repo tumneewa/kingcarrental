@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import generatePromptPayPayload from "promptpay-qr";
 import QRCode from "qrcode";
 import { supabase } from "../../lib/supabaseClient";
-import { todayISO, daysBetween, money, formatDate, formatTime, dateISO, buildMonthGrid } from "../../lib/utils";
+import { todayISO, daysBetween, money, formatDate, formatTime, shiftTime, dateISO, buildMonthGrid } from "../../lib/utils";
 import { SHOP_PROMPTPAY_ID, SHOP_DEPOSIT_AMOUNT, SHOP_LOGO_URL } from "../../lib/shopConfig";
 import { t, useLang, localeFor } from "../../lib/i18n";
 import LangSwitcher from "../../components/LangSwitcher";
@@ -322,16 +322,21 @@ function BookingContent() {
                 const iso = dateISO(d);
                 const isPast = iso < todayStr;
                 const booking = bookingOnDate(selectedCarId, iso);
-                const boundaryBooking = bookedRanges.find((b) => b.car_id === selectedCarId && (iso === b.start_date || iso === b.end_date));
+                const endingHere = bookedRanges.find((b) => b.car_id === selectedCarId && b.end_date === iso);
+                const startingHere = bookedRanges.find((b) => b.car_id === selectedCarId && b.start_date === iso);
+                const boundaryBooking = endingHere || startingHere;
                 const disabled = isPast || !!booking;
                 const inRange = rangeStart && (rangeEnd ? iso >= rangeStart && iso <= rangeEnd : iso === rangeStart);
                 let bg = "#EDEDEA", color = "#6B6B66";
                 if (isPast) { bg = "#F1F1EE"; color = "#B4B4AC"; }
                 else if (booking) { bg = "#FBE4E1"; color = "#C0392B"; }
                 if (inRange) { bg = RED; color = "white"; }
+                const tooltipParts = [];
+                if (endingHere && !disabled) tooltipParts.push(t(lang, "tooltipAvailableFrom", { time: shiftTime(endingHere.end_time, 1) }));
+                if (startingHere && !disabled) tooltipParts.push(t(lang, "tooltipReturnBy", { time: shiftTime(startingHere.start_time, -1) }));
                 return (
                   <button key={i} type="button" onClick={() => handleDayClick(iso, disabled)} disabled={disabled}
-                    title={boundaryBooking && !disabled ? "วันนี้มีลูกค้าอีกคนรับ/คืนรถคันนี้เช่นกัน กรุณาเลือกเวลาไม่ให้ชนกัน" : undefined}
+                    title={tooltipParts.length > 0 ? tooltipParts.join(" · ") : undefined}
                     className="relative flex h-9 items-center justify-center rounded-md text-xs font-semibold disabled:cursor-not-allowed"
                     style={{ background: bg, color, cursor: disabled ? "not-allowed" : "pointer" }}>
                     {d.getDate()}
