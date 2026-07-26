@@ -76,30 +76,30 @@ export default function HomePage() {
 
       {/* ---------- hero ---------- */}
       <section
-        className="relative mx-auto max-w-5xl px-5 pb-14 pt-8 sm:pt-16"
+        className="relative flex min-h-[420px] w-full items-center justify-center px-5 py-16 text-center sm:min-h-[520px]"
         style={
           SHOP_HERO_IMAGE_URL
-            ? { backgroundImage: `linear-gradient(rgba(38,38,38,0.55), rgba(38,38,38,0.55)), url(${SHOP_HERO_IMAGE_URL})`, backgroundSize: "cover", backgroundPosition: "center", borderRadius: 16 }
-            : {}
+            ? { backgroundImage: `linear-gradient(rgba(38,38,38,0.5), rgba(38,38,38,0.6)), url(${SHOP_HERO_IMAGE_URL})`, backgroundSize: "cover", backgroundPosition: "center" }
+            : { background: PAPER }
         }
       >
-        <div className="max-w-2xl">
+        <div className="mx-auto max-w-2xl">
           <h1
-            className="text-3xl font-extrabold leading-tight sm:text-4xl"
+            className="text-4xl font-extrabold leading-tight sm:text-5xl md:text-6xl"
             style={{ color: SHOP_HERO_IMAGE_URL ? "white" : INK }}
           >
             {SHOP_TAGLINE}
           </h1>
-          <p className="mt-4 text-sm sm:text-base" style={{ color: SHOP_HERO_IMAGE_URL ? "rgba(255,255,255,0.85)" : "#78716c" }}>{SHOP_ABOUT}</p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <a href="/book" className="rounded-lg px-5 py-3 text-sm font-bold text-white" style={{ background: RED }}>
+          <p className="mx-auto mt-5 max-w-xl text-sm sm:text-base" style={{ color: SHOP_HERO_IMAGE_URL ? "rgba(255,255,255,0.9)" : "#78716c" }}>{SHOP_ABOUT}</p>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <a href="/book" className="rounded-lg px-6 py-3.5 text-sm font-bold text-white" style={{ background: RED }}>
               {t(lang, "ctaSeeAvailable")}
             </a>
-            <a href="#fleet" className="rounded-lg border border-black/10 bg-white px-5 py-3 text-sm font-bold" style={{ color: INK }}>
+            <a href="#fleet" className="rounded-lg border px-6 py-3.5 text-sm font-bold" style={SHOP_HERO_IMAGE_URL ? { borderColor: "rgba(255,255,255,0.5)", color: "white" } : { borderColor: "rgba(0,0,0,0.1)", color: INK, background: "white" }}>
               {t(lang, "ctaSeeAll")}
             </a>
           </div>
-          <div className="mt-8 flex flex-wrap gap-6 text-xs" style={{ color: SHOP_HERO_IMAGE_URL ? "rgba(255,255,255,0.85)" : "#78716c" }}>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-6 text-xs" style={{ color: SHOP_HERO_IMAGE_URL ? "rgba(255,255,255,0.85)" : "#78716c" }}>
             <span className="flex items-center gap-1.5"><ShieldCheck size={15} style={{ color: SHOP_HERO_IMAGE_URL ? "white" : RED }} /> {t(lang, "trustInspected")}</span>
             <span className="flex items-center gap-1.5"><BadgeCheck size={15} style={{ color: SHOP_HERO_IMAGE_URL ? "white" : RED }} /> {t(lang, "trustPricing")}</span>
             <span className="flex items-center gap-1.5"><Clock size={15} style={{ color: SHOP_HERO_IMAGE_URL ? "white" : RED }} /> {t(lang, "trustOnline")}</span>
