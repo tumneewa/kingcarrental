@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import generatePromptPayPayload from "promptpay-qr";
 import QRCode from "qrcode";
 import { supabase } from "../../lib/supabaseClient";
-import { todayISO, daysBetween, money, formatDate, formatTime, shiftTime, calcRentalTotal, dateISO, buildMonthGrid } from "../../lib/utils";
+import { todayISO, daysBetween, money, formatDate, formatTime, shiftTime, calcRentalTotalWithTime, dateISO, buildMonthGrid } from "../../lib/utils";
 import { SHOP_PROMPTPAY_ID, SHOP_DEPOSIT_AMOUNT, SHOP_LOGO_URL } from "../../lib/shopConfig";
 import { t, useLang, localeFor } from "../../lib/i18n";
 import LangSwitcher from "../../components/LangSwitcher";
@@ -140,8 +140,11 @@ function BookingContent() {
     else setRangeEnd(iso);
   };
 
-  const nDaysSel = rangeStart && rangeEnd ? daysBetween(rangeStart, rangeEnd) : 0;
-  const totalSel = selectedCar && nDaysSel ? calcRentalTotal(selectedCar, nDaysSel) : 0;
+  const rentalCalc = selectedCar && rangeStart && rangeEnd
+    ? calcRentalTotalWithTime(selectedCar, rangeStart, pickupTime, rangeEnd, returnTime)
+    : { total: 0, days: 0, extraHours: 0, surcharge: 0 };
+  const nDaysSel = rentalCalc.days;
+  const totalSel = rentalCalc.total;
 
   const submitRequest = async (e) => {
     e.preventDefault();
@@ -337,6 +340,24 @@ function BookingContent() {
               </div>
             </div>
 
+            {(selectedCar.price_3days > 0 || selectedCar.price_7days > 0 || selectedCar.price_monthly > 0) && (
+              <div className="mt-3 rounded-lg border border-black/5 p-3" style={{ background: PAPER }}>
+                <p className="text-[11px] font-semibold" style={{ color: INK }}>{t(lang, "priceTiersTitle")}</p>
+                <div className="mt-1.5 space-y-1 text-[11px] text-stone-500">
+                  <div className="flex justify-between"><span>{t(lang, "priceTier1")}</span><span className="font-medium" style={{ color: INK }}>{money(selectedCar.price_per_day)}/{t(lang, "daysUnit")}</span></div>
+                  {selectedCar.price_3days > 0 && (
+                    <div className="flex justify-between"><span>{t(lang, "priceTier3")}</span><span className="font-medium" style={{ color: INK }}>{money(selectedCar.price_3days)}/{t(lang, "daysUnit")}</span></div>
+                  )}
+                  {selectedCar.price_7days > 0 && (
+                    <div className="flex justify-between"><span>{t(lang, "priceTier7")}</span><span className="font-medium" style={{ color: INK }}>{money(selectedCar.price_7days)}/{t(lang, "daysUnit")}</span></div>
+                  )}
+                  {selectedCar.price_monthly > 0 && (
+                    <div className="flex justify-between"><span>{t(lang, "priceTierMonthly")}</span><span className="font-medium" style={{ color: INK }}>{money(selectedCar.price_monthly)}</span></div>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="mt-4 flex items-center justify-between">
               <button onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))} className="rounded-lg px-2 py-1 text-sm text-stone-500 hover:bg-stone-100">‹</button>
               <p className="text-sm font-bold" style={{ color: INK }}>{calendarMonth.toLocaleDateString(localeFor(lang), { month: "long", year: "numeric" })}</p>
@@ -465,6 +486,9 @@ function BookingContent() {
                       <span className="text-xs text-stone-500">{t(lang, "estimatedTotal")}</span>
                       <span className="text-base font-bold" style={{ color: RED, fontFamily: "'IBM Plex Mono', monospace" }}>{money(totalSel)}</span>
                     </div>
+                    {rentalCalc.extraHours > 0 && (
+                      <p className="text-[10px] text-stone-400">{t(lang, "overtimeSurchargeNote", { hours: Math.round(rentalCalc.extraHours * 10) / 10, amount: money(rentalCalc.surcharge) })}</p>
+                    )}
 
                     {submitError && <p className="text-xs font-medium text-red-600">{submitError}</p>}
 
