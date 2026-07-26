@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 import { todayISO, daysBetween, money, formatDate, formatTime, dateISO, buildMonthGrid, hasTimeConflict } from "../../lib/utils";
-import { SHOP_LOGO_URL, SHOP_NAME } from "../../lib/shopConfig";
+import { SHOP_LOGO_URL, SHOP_NAME, SHOP_DEPOSIT_AMOUNT } from "../../lib/shopConfig";
 import PhotoThumb, { carPhotos } from "../../components/PhotoThumb";
 import {
   LayoutDashboard,
@@ -202,7 +202,7 @@ export default function Dashboard() {
 
   // ---- add car ----
   const [showAddCar, setShowAddCar] = useState(false);
-  const [carForm, setCarForm] = useState({ plate: "", province: "กรุงเทพมหานคร", brand: "", model: "", type: "รถเล็ก", price_per_day: "" });
+  const [carForm, setCarForm] = useState({ plate: "", province: "กรุงเทพมหานคร", brand: "", model: "", type: "รถเล็ก", price_per_day: "", deposit_amount: "" });
   const [carPhotoFiles, setCarPhotoFiles] = useState([]); // สูงสุด 10 ไฟล์
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
@@ -231,8 +231,14 @@ export default function Dashboard() {
       setUploadingPhoto(false);
     }
 
-    await supabase.from("cars").insert({ ...carForm, price_per_day: Number(carForm.price_per_day), status: "available", photos });
-    setCarForm({ plate: "", province: "กรุงเทพมหานคร", brand: "", model: "", type: "รถเล็ก", price_per_day: "" });
+    await supabase.from("cars").insert({
+      ...carForm,
+      price_per_day: Number(carForm.price_per_day),
+      deposit_amount: carForm.deposit_amount ? Number(carForm.deposit_amount) : 0,
+      status: "available",
+      photos,
+    });
+    setCarForm({ plate: "", province: "กรุงเทพมหานคร", brand: "", model: "", type: "รถเล็ก", price_per_day: "", deposit_amount: "" });
     setCarPhotoFiles([]);
     setShowAddCar(false);
     fetchAll();
@@ -286,6 +292,7 @@ export default function Dashboard() {
       model: car.model,
       type: car.type,
       price_per_day: String(car.price_per_day),
+      deposit_amount: car.deposit_amount ? String(car.deposit_amount) : "",
     });
     setEditingCarDetails(true);
   };
@@ -295,7 +302,11 @@ export default function Dashboard() {
     setSavingCarEdit(true);
     await supabase
       .from("cars")
-      .update({ ...editCarForm, price_per_day: Number(editCarForm.price_per_day) })
+      .update({
+        ...editCarForm,
+        price_per_day: Number(editCarForm.price_per_day),
+        deposit_amount: editCarForm.deposit_amount ? Number(editCarForm.deposit_amount) : 0,
+      })
       .eq("id", carId);
     setSavingCarEdit(false);
     setEditingCarDetails(false);
@@ -731,6 +742,7 @@ export default function Dashboard() {
                       <span className="text-lg font-bold" style={{ color: PLATE_RED, fontFamily: "'IBM Plex Mono', monospace" }}>{money(c.price_per_day)}</span>
                       <span className="text-xs text-stone-400">/ วัน</span>
                     </div>
+                    <p className="mt-0.5 text-[11px] text-stone-400">มัดจำ {money(c.deposit_amount > 0 ? c.deposit_amount : SHOP_DEPOSIT_AMOUNT)}</p>
 
                     <button onClick={(e) => { e.stopPropagation(); openCarDetail(c.id); }} className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold" style={{ background: PAPER, color: INK }}>
                       <CalendarPlus size={12} /> ดูวันว่าง
@@ -1103,6 +1115,10 @@ export default function Dashboard() {
               </select>
               <input required type="number" min="0" placeholder="ราคาต่อวัน (บาท)" value={carForm.price_per_day} onChange={(e) => setCarForm({ ...carForm, price_per_day: e.target.value })} className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm outline-none" />
               <div>
+                <input type="number" min="0" placeholder="ค่ามัดจำ/ประกันความเสียหาย (ไม่บังคับ)" value={carForm.deposit_amount} onChange={(e) => setCarForm({ ...carForm, deposit_amount: e.target.value })} className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm outline-none" />
+                <p className="mt-1 text-[10px] text-stone-400">เว้นว่างไว้ได้ ถ้าเว้นว่าง ระบบจะใช้ค่ามัดจำเริ่มต้นของร้านแทน</p>
+              </div>
+              <div>
                 <label className="text-xs text-stone-500">รูปรถ (ไม่บังคับ สูงสุด 10 รูป)</label>
                 <input
                   type="file"
@@ -1234,6 +1250,7 @@ export default function Dashboard() {
                       <option>รถเล็ก</option><option>SUV</option><option>กระบะ</option><option>รถตู้/VIP</option>
                     </select>
                     <input type="number" min="0" placeholder="ราคาต่อวัน (บาท)" value={editCarForm.price_per_day} onChange={(e) => setEditCarForm({ ...editCarForm, price_per_day: e.target.value })} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none" />
+                    <input type="number" min="0" placeholder="ค่ามัดจำ/ประกันความเสียหาย (ไม่บังคับ)" value={editCarForm.deposit_amount} onChange={(e) => setEditCarForm({ ...editCarForm, deposit_amount: e.target.value })} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none" />
                     <div className="flex gap-2 pt-1">
                       <button onClick={() => setEditingCarDetails(false)} className="flex-1 rounded-lg py-2 text-xs font-semibold text-stone-500" style={{ background: "white", border: "1px solid rgba(0,0,0,0.1)" }}>
                         ยกเลิก
