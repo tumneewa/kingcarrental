@@ -265,9 +265,21 @@ function BookingContent() {
             </div>
           )}
 
+          {bookingId && (
+            <a
+              href={`/booking/${bookingId}`}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-4 block rounded-lg border border-black/10 bg-white px-4 py-2.5 text-xs font-semibold"
+              style={{ color: INK }}
+            >
+              {t(lang, "viewReceipt")}
+            </a>
+          )}
+
           <button
             onClick={() => { setDone(false); setSelectedCarId(null); setName(""); setPhone(""); setRangeStart(null); setRangeEnd(null); setSlipFile(null); setPaymentNotified(false); setBookingId(null); setSubmitError(""); }}
-            className="mt-4 rounded-lg px-4 py-2 text-xs font-semibold text-white"
+            className="mt-2 rounded-lg px-4 py-2 text-xs font-semibold text-white"
             style={{ background: RED }}
           >
             {t(lang, "bookAnotherCar")}
