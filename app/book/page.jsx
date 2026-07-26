@@ -163,7 +163,7 @@ function BookingContent() {
   };
 
   const notifyPayment = async () => {
-    if (!bookingId) return;
+    if (!bookingId || !slipFile) return;
     setNotifying(true);
     let slipUrl = null;
     if (slipFile) {
@@ -220,12 +220,13 @@ function BookingContent() {
                   </div>
                   <button
                     onClick={notifyPayment}
-                    disabled={notifying || uploadingSlip}
+                    disabled={notifying || uploadingSlip || !slipFile}
                     className="mt-2 w-full rounded-lg py-2.5 text-sm font-bold text-white disabled:opacity-50"
                     style={{ background: RED }}
                   >
                     {uploadingSlip ? t(lang, "uploadingSlip") : notifying ? t(lang, "notifying") : t(lang, "notifyPayment")}
                   </button>
+                  {!slipFile && <p className="mt-1.5 text-[10px] text-stone-400">{t(lang, "slipRequiredHint")}</p>}
                 </>
               )}
               <p className="mt-2 text-[10px] text-stone-400">{t(lang, "afterPayHint")}</p>
