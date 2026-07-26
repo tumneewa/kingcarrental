@@ -312,6 +312,7 @@ function BookingContent() {
         </div>
         <div className="flex items-center gap-3">
           <LangSwitcher lang={lang} setLang={setLang} />
+          <a href="/my-bookings" className="text-xs font-semibold text-stone-400 hover:text-stone-600">{t(lang, "myBookings")}</a>
           <a href="/" className="text-xs font-semibold text-stone-400 hover:text-stone-600">{t(lang, "backHome")}</a>
         </div>
       </header>
