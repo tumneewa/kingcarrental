@@ -15,15 +15,16 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(0.4);
 }
 
-/* ลายเส้นทแยงบางๆ โทนเทา เรียบหรูดูเป็นกราฟิก ใช้กับพื้นหลังหลักของทุกหน้า */
+/* ลายริบบิ้นนุ่มๆ ไล่เฉดเทาอ่อน ทแยงมุม เรียบหรูแบบพรีเมียม ใช้กับพื้นหลังหลักของทุกหน้า */
 .paper-bg {
-  background-color: #F2F2F0;
+  background-color: #F5F5F3;
   background-image: repeating-linear-gradient(
-    45deg,
-    rgba(38, 38, 38, 0.035) 0px,
-    rgba(38, 38, 38, 0.035) 1px,
-    transparent 1px,
-    transparent 14px
+    120deg,
+    rgba(38, 38, 38, 0.05) 0px,
+    rgba(38, 38, 38, 0.05) 2px,
+    rgba(38, 38, 38, 0.02) 30px,
+    transparent 70px,
+    transparent 130px
   );
 }
 
