@@ -91,8 +91,10 @@ function BookingContent() {
   const selectedCar = cars.find((c) => c.id === selectedCarId);
   const todayStr = todayISO();
 
+  // เช็กเฉพาะวันที่อยู่ "ระหว่างกลาง" ของการจองอื่น (ไม่รวมวันรับ-วันคืนของเขา)
+  // เพื่อให้ลูกค้าใหม่จองวันรับรถ/คืนรถชนกับวันคืน/รับของคนอื่นได้ แล้วไปเช็กเวลาจริงตอนส่งคำขอ
   const bookingOnDate = (carId, iso) =>
-    bookedRanges.find((b) => b.car_id === carId && iso >= b.start_date && iso <= b.end_date);
+    bookedRanges.find((b) => b.car_id === carId && iso > b.start_date && iso < b.end_date);
 
   const isRangeConflict = (carId, startIso, endIso) => {
     let d = new Date(startIso);
@@ -320,6 +322,7 @@ function BookingContent() {
                 const iso = dateISO(d);
                 const isPast = iso < todayStr;
                 const booking = bookingOnDate(selectedCarId, iso);
+                const boundaryBooking = bookedRanges.find((b) => b.car_id === selectedCarId && (iso === b.start_date || iso === b.end_date));
                 const disabled = isPast || !!booking;
                 const inRange = rangeStart && (rangeEnd ? iso >= rangeStart && iso <= rangeEnd : iso === rangeStart);
                 let bg = "#EDEDEA", color = "#6B6B66";
@@ -328,9 +331,13 @@ function BookingContent() {
                 if (inRange) { bg = RED; color = "white"; }
                 return (
                   <button key={i} type="button" onClick={() => handleDayClick(iso, disabled)} disabled={disabled}
-                    className="flex h-9 items-center justify-center rounded-md text-xs font-semibold disabled:cursor-not-allowed"
+                    title={boundaryBooking && !disabled ? "วันนี้มีลูกค้าอีกคนรับ/คืนรถคันนี้เช่นกัน กรุณาเลือกเวลาไม่ให้ชนกัน" : undefined}
+                    className="relative flex h-9 items-center justify-center rounded-md text-xs font-semibold disabled:cursor-not-allowed"
                     style={{ background: bg, color, cursor: disabled ? "not-allowed" : "pointer" }}>
                     {d.getDate()}
+                    {boundaryBooking && !disabled && (
+                      <span className="absolute bottom-0.5 h-1 w-1 rounded-full" style={{ background: inRange ? "white" : RED }} />
+                    )}
                   </button>
                 );
               })}
@@ -341,6 +348,9 @@ function BookingContent() {
               <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: "#FBE4E1" }} />{t(lang, "legendBooked")}</span>
               <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: RED }} />{t(lang, "legendSelected")}</span>
             </div>
+            <p className="mt-1.5 flex items-center gap-1 text-[10px] text-stone-400">
+              <span className="h-1.5 w-1.5 rounded-full" style={{ background: RED }} /> {t(lang, "sameDayHandoverNote")}
+            </p>
 
             {rangeStart && (
               <div className="mt-4 rounded-lg border border-black/5 p-3" style={{ background: PAPER }}>
