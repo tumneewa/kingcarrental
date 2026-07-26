@@ -361,6 +361,20 @@ function BookingContent() {
                   <button onClick={() => { setRangeStart(null); setRangeEnd(null); }} className="text-[11px] text-stone-400 hover:text-stone-600">{t(lang, "clear")}</button>
                 </div>
 
+                {rangeEnd && (() => {
+                  // มีคันอื่นคืนรถวันเดียวกับที่เราจะรับรถไหม (ต้องรับหลังเวลานั้น + เผื่อ 1 ชม.)
+                  const returningToday = bookedRanges.find((b) => b.car_id === selectedCarId && b.end_date === rangeStart);
+                  // มีคันอื่นมารับรถวันเดียวกับที่เราจะคืนรถไหม (ต้องคืนก่อนเวลานั้น อย่างน้อย 1 ชม.)
+                  const pickingUpSameDay = bookedRanges.find((b) => b.car_id === selectedCarId && b.start_date === rangeEnd);
+                  if (!returningToday && !pickingUpSameDay) return null;
+                  return (
+                    <div className="mt-2 rounded-lg border border-dashed p-2.5 text-[11px]" style={{ borderColor: RED, color: RED, background: "#FBE4E1" }}>
+                      {returningToday && <p>{t(lang, "hintReturningToday", { time: formatTime(returningToday.end_time) })}</p>}
+                      {pickingUpSameDay && <p className={returningToday ? "mt-1" : ""}>{t(lang, "hintPickupSameDay", { time: formatTime(pickingUpSameDay.start_time) })}</p>}
+                    </div>
+                  );
+                })()}
+
                 {rangeEnd && (
                   <form onSubmit={submitRequest} className="mt-3 space-y-2.5">
                     <div className="flex gap-2">
