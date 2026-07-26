@@ -276,7 +276,7 @@ function BookingContent() {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {cars.map((c) => (
                 <button key={c.id} onClick={() => openCar(c.id)} className="overflow-hidden rounded-xl border border-black/5 bg-white text-left shadow-sm transition-shadow hover:shadow-md">
-                  <PhotoThumb car={c} className="h-32 w-full" />
+                  <PhotoThumb car={c} className="aspect-square w-full" />
                   <div className="p-4">
                     <Plate plate={c.plate} province={c.province} />
                     <p className="mt-3 text-sm font-bold" style={{ color: INK }}>{c.brand} {c.model}</p>
@@ -293,7 +293,7 @@ function BookingContent() {
           </>
         ) : (
           <div className="overflow-hidden rounded-xl bg-white shadow-sm">
-            <PhotoThumb car={selectedCar} className="h-40 w-full" />
+            <PhotoThumb car={selectedCar} className="aspect-square w-full" />
             <div className="p-5">
             <button onClick={() => setSelectedCarId(null)} className="mb-3 text-xs font-semibold text-stone-400 hover:text-stone-600">{t(lang, "backToSelect")}</button>
 
