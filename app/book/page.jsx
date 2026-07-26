@@ -5,12 +5,12 @@ import { useSearchParams } from "next/navigation";
 import generatePromptPayPayload from "promptpay-qr";
 import QRCode from "qrcode";
 import { supabase } from "../../lib/supabaseClient";
-import { todayISO, daysBetween, money, formatDate, dateISO, buildMonthGrid } from "../../lib/utils";
+import { todayISO, daysBetween, money, formatDate, formatTime, dateISO, buildMonthGrid } from "../../lib/utils";
 import { SHOP_PROMPTPAY_ID, SHOP_DEPOSIT_AMOUNT, SHOP_LOGO_URL } from "../../lib/shopConfig";
 import { t, useLang, localeFor } from "../../lib/i18n";
 import LangSwitcher from "../../components/LangSwitcher";
 import PhotoThumb from "../../components/PhotoThumb";
-import { Phone, User, Loader2, CheckCircle2, Car as CarIcon, QrCode, Upload } from "lucide-react";
+import { Phone, User, Clock, Loader2, CheckCircle2, Car as CarIcon, QrCode, Upload } from "lucide-react";
 
 const INK = "#262626";
 const RED = "#C0392B";
@@ -62,6 +62,8 @@ function BookingContent() {
   const [rangeEnd, setRangeEnd] = useState(null);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [pickupTime, setPickupTime] = useState("10:00");
+  const [returnTime, setReturnTime] = useState("10:00");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [done, setDone] = useState(false);
@@ -133,6 +135,8 @@ function BookingContent() {
       p_customer_phone: phone.trim(),
       p_start_date: rangeStart,
       p_end_date: rangeEnd,
+      p_start_time: pickupTime,
+      p_end_time: returnTime,
     });
     setSubmitting(false);
     if (error) {
@@ -349,6 +353,22 @@ function BookingContent() {
 
                 {rangeEnd && (
                   <form onSubmit={submitRequest} className="mt-3 space-y-2.5">
+                    <div className="flex gap-2">
+                      <div className="flex flex-1 items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2">
+                        <Clock size={14} className="text-stone-400" />
+                        <div className="w-full">
+                          <label className="block text-[10px] text-stone-400">{t(lang, "pickupTimeLabel")}</label>
+                          <input type="time" required value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} className="w-full text-sm outline-none" />
+                        </div>
+                      </div>
+                      <div className="flex flex-1 items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2">
+                        <Clock size={14} className="text-stone-400" />
+                        <div className="w-full">
+                          <label className="block text-[10px] text-stone-400">{t(lang, "returnTimeLabel")}</label>
+                          <input type="time" required value={returnTime} onChange={(e) => setReturnTime(e.target.value)} className="w-full text-sm outline-none" />
+                        </div>
+                      </div>
+                    </div>
                     <div className="flex items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2">
                       <User size={14} className="text-stone-400" />
                       <input required value={name} onChange={(e) => setName(e.target.value)} placeholder={t(lang, "namePlaceholder")} className="w-full text-sm outline-none" />
