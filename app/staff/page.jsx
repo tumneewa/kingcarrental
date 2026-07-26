@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
-import { todayISO, daysBetween, money, formatDate, dateISO, buildMonthGrid } from "../../lib/utils";
+import { todayISO, daysBetween, money, formatDate, formatTime, dateISO, buildMonthGrid } from "../../lib/utils";
 import { SHOP_LOGO_URL, SHOP_NAME } from "../../lib/shopConfig";
 import PhotoThumb, { carPhotos } from "../../components/PhotoThumb";
 import {
@@ -23,6 +23,11 @@ import {
   Check,
   LogOut,
   Loader2,
+  Pencil,
+  Trash2,
+  CalendarDays,
+  ArrowRightCircle,
+  ArrowLeftCircle,
 } from "lucide-react";
 
 // ---------- palette / tokens ----------
@@ -266,6 +271,45 @@ export default function Dashboard() {
   const [rangeEnd, setRangeEnd] = useState(null);
   const [calMemberId, setCalMemberId] = useState("");
   const [calMemberQuery, setCalMemberQuery] = useState("");
+  const [calStartTime, setCalStartTime] = useState("10:00");
+  const [calEndTime, setCalEndTime] = useState("10:00");
+  const [editingCarDetails, setEditingCarDetails] = useState(false);
+  const [editCarForm, setEditCarForm] = useState(null);
+  const [savingCarEdit, setSavingCarEdit] = useState(false);
+  const [deletingCar, setDeletingCar] = useState(false);
+
+  const startEditCar = (car) => {
+    setEditCarForm({
+      plate: car.plate,
+      province: car.province,
+      brand: car.brand,
+      model: car.model,
+      type: car.type,
+      price_per_day: String(car.price_per_day),
+    });
+    setEditingCarDetails(true);
+  };
+
+  const saveCarEdit = async (carId) => {
+    if (!editCarForm.plate || !editCarForm.brand || !editCarForm.model || !editCarForm.price_per_day) return;
+    setSavingCarEdit(true);
+    await supabase
+      .from("cars")
+      .update({ ...editCarForm, price_per_day: Number(editCarForm.price_per_day) })
+      .eq("id", carId);
+    setSavingCarEdit(false);
+    setEditingCarDetails(false);
+    fetchAll();
+  };
+
+  const deleteCar = async (carId) => {
+    if (!window.confirm("ยืนยันลบรถคันนี้ออกจากระบบ? ประวัติการจองเดิมจะยังอยู่ แต่จะไม่มีรถให้อ้างอิงอีก")) return;
+    setDeletingCar(true);
+    await supabase.from("cars").delete().eq("id", carId);
+    setDeletingCar(false);
+    closeCarDetail();
+    fetchAll();
+  };
 
   const openCarDetail = (carId) => {
     setDetailCarId(carId);
@@ -274,6 +318,10 @@ export default function Dashboard() {
     setRangeEnd(null);
     setCalMemberId("");
     setCalMemberQuery("");
+    setCalStartTime("10:00");
+    setCalEndTime("10:00");
+    setEditingCarDetails(false);
+    setEditCarForm(null);
   };
   const closeCarDetail = () => {
     setDetailCarId(null);
@@ -281,6 +329,10 @@ export default function Dashboard() {
     setRangeEnd(null);
     setCalMemberId("");
     setCalMemberQuery("");
+    setCalStartTime("10:00");
+    setCalEndTime("10:00");
+    setEditingCarDetails(false);
+    setEditCarForm(null);
   };
 
   const buildMonthGrid = (monthDate) => {
@@ -318,6 +370,8 @@ export default function Dashboard() {
   const [bookingCarId, setBookingCarId] = useState("");
   const [bookingStart, setBookingStart] = useState(todayISO());
   const [bookingEnd, setBookingEnd] = useState(todayISO());
+  const [bookingStartTime, setBookingStartTime] = useState("10:00");
+  const [bookingEndTime, setBookingEndTime] = useState("10:00");
   const [memberQuery, setMemberQuery] = useState("");
 
   const availableCars = cars.filter((c) => c.status === "available");
@@ -336,6 +390,8 @@ export default function Dashboard() {
       member_id: bookingMemberId,
       start_date: bookingStart,
       end_date: bookingEnd,
+      start_time: bookingStartTime,
+      end_time: bookingEndTime,
       total,
       status: "active",
       source: "staff",
@@ -346,6 +402,8 @@ export default function Dashboard() {
     setBookingMemberId("");
     setBookingStart(todayISO());
     setBookingEnd(todayISO());
+    setBookingStartTime("10:00");
+    setBookingEndTime("10:00");
     setTab("bookings");
     fetchAll();
   };
@@ -395,6 +453,37 @@ export default function Dashboard() {
       .sort((a, b) => new Date(a.start_date) - new Date(b.start_date));
     return { total, avail, rented, maint, revenue, activeBookings, pendingBookings };
   }, [cars, bookings]);
+
+  // ---- สรุปรับ-คืนรถรายวัน ----
+  const [scheduleDate, setScheduleDate] = useState(todayISO());
+
+  const pickupsOnDate = useMemo(
+    () =>
+      bookings
+        .filter((b) => b.start_date === scheduleDate && (b.status === "active" || b.status === "pending"))
+        .sort((a, b) => (a.start_time || "").localeCompare(b.start_time || "")),
+    [bookings, scheduleDate]
+  );
+  const returnsOnDate = useMemo(
+    () =>
+      bookings
+        .filter((b) => b.end_date === scheduleDate && b.status === "active")
+        .sort((a, b) => (a.end_time || "").localeCompare(b.end_time || "")),
+    [bookings, scheduleDate]
+  );
+
+  const todaySummaryCount = useMemo(() => {
+    const today = todayISO();
+    const p = bookings.filter((b) => b.start_date === today && (b.status === "active" || b.status === "pending")).length;
+    const r = bookings.filter((b) => b.end_date === today && b.status === "active").length;
+    return p + r;
+  }, [bookings]);
+
+  const shiftScheduleDate = (deltaDays) => {
+    const d = new Date(scheduleDate);
+    d.setDate(d.getDate() + deltaDays);
+    setScheduleDate(dateISO(d));
+  };
 
   const memberName = (id) => members.find((m) => m.id === id)?.name || "—";
   const carLabel = (id) => {
@@ -492,6 +581,7 @@ export default function Dashboard() {
         <NavItem icon={LayoutDashboard} label="ภาพรวม" active={tab === "overview"} onClick={() => setTab("overview")} />
         <NavItem icon={Car} label="รถทั้งหมด" active={tab === "fleet"} onClick={() => setTab("fleet")} count={stats.total} />
         <NavItem icon={CalendarPlus} label="จองรถใหม่" active={tab === "newbooking"} onClick={() => setTab("newbooking")} />
+        <NavItem icon={CalendarDays} label="สรุปรับ-คืนรถ" active={tab === "schedule"} onClick={() => setTab("schedule")} count={todaySummaryCount} />
         <NavItem icon={ClipboardList} label="ประวัติการจอง" active={tab === "bookings"} onClick={() => setTab("bookings")} count={stats.activeBookings.length + stats.pendingBookings.length} />
         <NavItem icon={Users} label="สมาชิก" active={tab === "members"} onClick={() => setTab("members")} count={members.length} />
 
@@ -535,7 +625,7 @@ export default function Dashboard() {
                         <div>
                           <p className="text-sm font-semibold" style={{ color: INK }}>{carLabel(b.car_id)}</p>
                           <p className="text-xs text-stone-500">
-                            {memberName(b.member_id)} · {formatDate(b.start_date)} – {formatDate(b.end_date)}
+                            {memberName(b.member_id)} · {formatDate(b.start_date)} {formatTime(b.start_time)} – {formatDate(b.end_date)} {formatTime(b.end_time)}
                           </p>
                           <p className="mt-0.5 text-[11px] font-semibold" style={{ color: b.payment_status === "paid" ? "#3F7A4E" : b.payment_status === "awaiting_verification" ? PLATE_RED : "#8A8A82" }}>
                             {b.payment_status === "paid" ? "ชำระเงินแล้ว" : b.payment_status === "awaiting_verification" ? "ลูกค้าแจ้งโอนแล้ว — รอตรวจสอบ" : "ยังไม่ชำระเงิน"}
@@ -585,7 +675,7 @@ export default function Dashboard() {
                     </div>
                     <div className="text-right">
                       <p className="flex items-center gap-1 justify-end text-xs font-semibold" style={{ color: PLATE_RED }}>
-                        <Clock size={12} /> คืน {formatDate(b.end_date)}
+                        <Clock size={12} /> คืน {formatDate(b.end_date)} {formatTime(b.end_time)}
                       </p>
                       <button onClick={() => returnCar(b)} className="mt-1 flex items-center gap-1 text-xs font-semibold text-stone-500 hover:text-stone-700">
                         <Undo2 size={12} /> คืนรถแล้ว
@@ -711,6 +801,16 @@ export default function Dashboard() {
                   <input type="date" value={bookingEnd} min={bookingStart} onChange={(e) => setBookingEnd(e.target.value)} className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm outline-none" />
                 </div>
               </div>
+              <div className="mt-2 flex gap-4">
+                <div className="flex-1">
+                  <label className="text-xs text-stone-500">เวลารับรถ</label>
+                  <input type="time" value={bookingStartTime} onChange={(e) => setBookingStartTime(e.target.value)} className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm outline-none" />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-stone-500">เวลาคืนรถ</label>
+                  <input type="time" value={bookingEndTime} onChange={(e) => setBookingEndTime(e.target.value)} className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm outline-none" />
+                </div>
+              </div>
 
               <div className="mt-4 flex items-center justify-between rounded-lg p-3" style={{ background: PAPER }}>
                 <div className="text-xs text-stone-500">{selectedCar ? `${nDays} วัน × ${money(selectedCar.price_per_day)}` : "เลือกรถเพื่อคำนวณราคา"}</div>
@@ -720,6 +820,115 @@ export default function Dashboard() {
               <button onClick={createBooking} disabled={!bookingMemberId || !bookingCarId} className="mt-4 w-full rounded-lg py-2.5 text-sm font-bold text-white disabled:opacity-40" style={{ background: PLATE_RED }}>
                 ยืนยันการจอง
               </button>
+            </div>
+          </div>
+        )}
+
+        {tab === "schedule" && (
+          <div>
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-xl font-bold" style={{ color: INK }}>สรุปรับ-คืนรถ</h1>
+                <p className="mt-0.5 text-sm text-stone-500">ดูว่าวันนี้ต้องส่งมอบ/รับคืนรถคันไหนบ้าง</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => shiftScheduleDate(-1)} className="rounded-lg border border-black/10 bg-white p-2 text-stone-500 hover:bg-stone-50">
+                  <ChevronRight size={15} className="rotate-180" />
+                </button>
+                <input
+                  type="date"
+                  value={scheduleDate}
+                  onChange={(e) => setScheduleDate(e.target.value)}
+                  className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none"
+                />
+                <button onClick={() => shiftScheduleDate(1)} className="rounded-lg border border-black/10 bg-white p-2 text-stone-500 hover:bg-stone-50">
+                  <ChevronRight size={15} />
+                </button>
+                {scheduleDate !== todayISO() && (
+                  <button onClick={() => setScheduleDate(todayISO())} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-stone-500 hover:bg-stone-50">
+                    วันนี้
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-5 grid grid-cols-2 gap-4">
+              {/* ---- รถที่ต้องรับ ---- */}
+              <div className="rounded-xl border border-black/5 bg-white p-5 shadow-sm">
+                <h2 className="flex items-center gap-1.5 text-sm font-bold" style={{ color: INK }}>
+                  <ArrowRightCircle size={16} style={{ color: PLATE_RED }} /> รถที่ต้องส่งมอบ ({pickupsOnDate.length})
+                </h2>
+                <div className="mt-3 space-y-3">
+                  {pickupsOnDate.length === 0 && <p className="py-6 text-center text-sm text-stone-400">ไม่มีรถที่ต้องส่งมอบในวันนี้</p>}
+                  {pickupsOnDate.map((b) => (
+                    <div key={b.id} className="rounded-lg border border-black/5 p-3" style={{ background: PAPER }}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold" style={{ color: INK }}>{carLabel(b.car_id)}</p>
+                          <p className="text-xs text-stone-400" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{carPlate(b.car_id)}</p>
+                          <p className="mt-1 text-xs text-stone-500">ผู้เช่า: {memberName(b.member_id)}</p>
+                        </div>
+                        <span className="rounded-full px-2 py-1 text-xs font-bold" style={{ background: "#FBE4E1", color: PLATE_RED, fontFamily: "'IBM Plex Mono', monospace" }}>
+                          {formatTime(b.start_time)}
+                        </span>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between">
+                        {b.status === "pending" ? (
+                          <span className="rounded-full border px-2 py-0.5 text-[11px] font-semibold" style={{ borderColor: PLATE_RED, color: PLATE_RED }}>รอยืนยัน</span>
+                        ) : (
+                          <span className="text-[11px] text-stone-400">ยืนยันแล้ว</span>
+                        )}
+                        <div className="flex gap-2">
+                          {b.status === "pending" && (
+                            <>
+                              <button onClick={() => confirmBooking(b)} className="text-xs font-semibold" style={{ color: PLATE_RED }}>ยืนยัน</button>
+                              <button onClick={() => rejectBooking(b)} className="text-xs font-semibold text-stone-400">ปฏิเสธ</button>
+                            </>
+                          )}
+                          {b.status === "active" && (
+                            <button
+                              onClick={() => setCarStatus(b.car_id, "rented")}
+                              className="text-xs font-semibold"
+                              style={{ color: PLATE_RED }}
+                            >
+                              ส่งมอบรถแล้ว
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* ---- รถที่ต้องคืน ---- */}
+              <div className="rounded-xl border border-black/5 bg-white p-5 shadow-sm">
+                <h2 className="flex items-center gap-1.5 text-sm font-bold" style={{ color: INK }}>
+                  <ArrowLeftCircle size={16} style={{ color: "#3F7A4E" }} /> รถที่ต้องรับคืน ({returnsOnDate.length})
+                </h2>
+                <div className="mt-3 space-y-3">
+                  {returnsOnDate.length === 0 && <p className="py-6 text-center text-sm text-stone-400">ไม่มีรถที่ต้องรับคืนในวันนี้</p>}
+                  {returnsOnDate.map((b) => (
+                    <div key={b.id} className="rounded-lg border border-black/5 p-3" style={{ background: PAPER }}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold" style={{ color: INK }}>{carLabel(b.car_id)}</p>
+                          <p className="text-xs text-stone-400" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{carPlate(b.car_id)}</p>
+                          <p className="mt-1 text-xs text-stone-500">ผู้เช่า: {memberName(b.member_id)}</p>
+                        </div>
+                        <span className="rounded-full px-2 py-1 text-xs font-bold" style={{ background: "#E7F3EC", color: "#3F7A4E", fontFamily: "'IBM Plex Mono', monospace" }}>
+                          {formatTime(b.end_time)}
+                        </span>
+                      </div>
+                      <div className="mt-2 flex justify-end">
+                        <button onClick={() => returnCar(b)} className="flex items-center gap-1 text-xs font-semibold" style={{ color: "#3F7A4E" }}>
+                          <Undo2 size={12} /> คืนรถแล้ว
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -761,7 +970,7 @@ export default function Dashboard() {
                             <span className="ml-1.5 rounded-full bg-[#F1F1EE] px-1.5 py-0.5 text-[9px] font-semibold text-stone-500">ลูกค้าจองเอง</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-xs text-stone-500">{formatDate(b.start_date)} – {formatDate(b.end_date)}</td>
+                        <td className="px-4 py-3 text-xs text-stone-500">{formatDate(b.start_date)} {formatTime(b.start_time)} – {formatDate(b.end_date)} {formatTime(b.end_time)}</td>
                         <td className="px-4 py-3 font-semibold" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{money(b.total)}</td>
                         <td className="px-4 py-3">
                           {b.payment_status === "paid" ? (
@@ -957,6 +1166,8 @@ export default function Dashboard() {
             member_id: calMemberId,
             start_date: rangeStart,
             end_date: rangeEnd,
+            start_time: calStartTime,
+            end_time: calEndTime,
             total: totalSel,
             status: "active",
             source: "staff",
@@ -979,8 +1190,44 @@ export default function Dashboard() {
                     <StatusPill status={car.status} />
                   </div>
                 </div>
-                <button onClick={closeCarDetail}><X size={18} className="text-stone-400" /></button>
+                <div className="flex items-center gap-1">
+                  {!editingCarDetails && (
+                    <button onClick={() => startEditCar(car)} title="แก้ไขข้อมูลรถ" className="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-600">
+                      <Pencil size={16} />
+                    </button>
+                  )}
+                  <button onClick={() => deleteCar(car.id)} disabled={deletingCar} title="ลบรถคันนี้" className="rounded-lg p-1.5 text-stone-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-40">
+                    <Trash2 size={16} />
+                  </button>
+                  <button onClick={closeCarDetail}><X size={18} className="text-stone-400" /></button>
+                </div>
               </div>
+
+              {editingCarDetails && editCarForm && (
+                <div className="mt-4 rounded-lg border border-black/5 p-3" style={{ background: PAPER }}>
+                  <p className="mb-2 text-xs font-semibold" style={{ color: INK }}>แก้ไขข้อมูลรถ</p>
+                  <div className="space-y-2">
+                    <input placeholder="ทะเบียนรถ" value={editCarForm.plate} onChange={(e) => setEditCarForm({ ...editCarForm, plate: e.target.value })} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none" />
+                    <input placeholder="จังหวัด" value={editCarForm.province} onChange={(e) => setEditCarForm({ ...editCarForm, province: e.target.value })} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none" />
+                    <div className="flex gap-2">
+                      <input placeholder="ยี่ห้อ" value={editCarForm.brand} onChange={(e) => setEditCarForm({ ...editCarForm, brand: e.target.value })} className="w-1/2 rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none" />
+                      <input placeholder="รุ่น" value={editCarForm.model} onChange={(e) => setEditCarForm({ ...editCarForm, model: e.target.value })} className="w-1/2 rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none" />
+                    </div>
+                    <select value={editCarForm.type} onChange={(e) => setEditCarForm({ ...editCarForm, type: e.target.value })} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none">
+                      <option>รถเล็ก</option><option>SUV</option><option>กระบะ</option><option>รถตู้/VIP</option>
+                    </select>
+                    <input type="number" min="0" placeholder="ราคาต่อวัน (บาท)" value={editCarForm.price_per_day} onChange={(e) => setEditCarForm({ ...editCarForm, price_per_day: e.target.value })} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none" />
+                    <div className="flex gap-2 pt-1">
+                      <button onClick={() => setEditingCarDetails(false)} className="flex-1 rounded-lg py-2 text-xs font-semibold text-stone-500" style={{ background: "white", border: "1px solid rgba(0,0,0,0.1)" }}>
+                        ยกเลิก
+                      </button>
+                      <button onClick={() => saveCarEdit(car.id)} disabled={savingCarEdit} className="flex-1 rounded-lg py-2 text-xs font-bold text-white disabled:opacity-50" style={{ background: PLATE_RED }}>
+                        {savingCarEdit ? "กำลังบันทึก..." : "บันทึก"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="mt-4 rounded-lg border border-black/5 p-3" style={{ background: PAPER }}>
                 <p className="mb-1.5 flex items-center justify-between text-xs font-semibold" style={{ color: INK }}>
@@ -1079,6 +1326,17 @@ export default function Dashboard() {
                         {calFilteredMembers.length === 0 && <p className="text-[11px] text-stone-400 py-1">ไม่พบลูกค้า</p>}
                       </div>
 
+                      <div className="mt-2 flex gap-2">
+                        <div className="flex-1">
+                          <label className="text-[10px] text-stone-400">เวลารับรถ</label>
+                          <input type="time" value={calStartTime} onChange={(e) => setCalStartTime(e.target.value)} className="mt-0.5 w-full rounded-lg border border-black/10 bg-white px-2 py-1.5 text-xs outline-none" />
+                        </div>
+                        <div className="flex-1">
+                          <label className="text-[10px] text-stone-400">เวลาคืนรถ</label>
+                          <input type="time" value={calEndTime} onChange={(e) => setCalEndTime(e.target.value)} className="mt-0.5 w-full rounded-lg border border-black/10 bg-white px-2 py-1.5 text-xs outline-none" />
+                        </div>
+                      </div>
+
                       <div className="mt-3 flex items-center justify-between">
                         <span className="text-xs text-stone-500">ยอดรวม</span>
                         <span className="text-base font-bold" style={{ color: PLATE_RED, fontFamily: "'IBM Plex Mono', monospace" }}>{money(totalSel)}</span>
@@ -1101,7 +1359,7 @@ export default function Dashboard() {
                         {memberName(b.member_id)}
                         {b.status === "pending" && <span className="ml-1.5 rounded-full bg-[#F1F1EE] px-1.5 py-0.5 text-[9px] font-semibold text-stone-500">รอยืนยัน</span>}
                       </span>
-                      <span className="font-medium" style={{ color: PLATE_RED, fontFamily: "'IBM Plex Mono', monospace" }}>{formatDate(b.start_date)} – {formatDate(b.end_date)}</span>
+                      <span className="font-medium" style={{ color: PLATE_RED, fontFamily: "'IBM Plex Mono', monospace" }}>{formatDate(b.start_date)} {formatTime(b.start_time)} – {formatDate(b.end_date)} {formatTime(b.end_time)}</span>
                     </div>
                   ))}
                 </div>
