@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
-import { todayISO, daysBetween, money, formatDate, formatTime, dateISO, buildMonthGrid, hasTimeConflict } from "../../lib/utils";
+import { todayISO, daysBetween, money, formatDate, formatTime, dateISO, buildMonthGrid, hasTimeConflict, calcRentalTotal } from "../../lib/utils";
 import { SHOP_LOGO_URL, SHOP_NAME, SHOP_DEPOSIT_AMOUNT } from "../../lib/shopConfig";
 import PhotoThumb, { carPhotos } from "../../components/PhotoThumb";
 import {
@@ -202,7 +202,7 @@ export default function Dashboard() {
 
   // ---- add car ----
   const [showAddCar, setShowAddCar] = useState(false);
-  const [carForm, setCarForm] = useState({ plate: "", province: "กรุงเทพมหานคร", brand: "", model: "", type: "รถเล็ก", price_per_day: "", deposit_amount: "" });
+  const [carForm, setCarForm] = useState({ plate: "", province: "กรุงเทพมหานคร", brand: "", model: "", type: "รถเล็ก", price_per_day: "", price_3days: "", price_7days: "", price_monthly: "", deposit_amount: "" });
   const [carPhotoFiles, setCarPhotoFiles] = useState([]); // สูงสุด 10 ไฟล์
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
@@ -234,11 +234,14 @@ export default function Dashboard() {
     await supabase.from("cars").insert({
       ...carForm,
       price_per_day: Number(carForm.price_per_day),
+      price_3days: carForm.price_3days ? Number(carForm.price_3days) : 0,
+      price_7days: carForm.price_7days ? Number(carForm.price_7days) : 0,
+      price_monthly: carForm.price_monthly ? Number(carForm.price_monthly) : 0,
       deposit_amount: carForm.deposit_amount ? Number(carForm.deposit_amount) : 0,
       status: "available",
       photos,
     });
-    setCarForm({ plate: "", province: "กรุงเทพมหานคร", brand: "", model: "", type: "รถเล็ก", price_per_day: "", deposit_amount: "" });
+    setCarForm({ plate: "", province: "กรุงเทพมหานคร", brand: "", model: "", type: "รถเล็ก", price_per_day: "", price_3days: "", price_7days: "", price_monthly: "", deposit_amount: "" });
     setCarPhotoFiles([]);
     setShowAddCar(false);
     fetchAll();
@@ -292,6 +295,9 @@ export default function Dashboard() {
       model: car.model,
       type: car.type,
       price_per_day: String(car.price_per_day),
+      price_3days: car.price_3days ? String(car.price_3days) : "",
+      price_7days: car.price_7days ? String(car.price_7days) : "",
+      price_monthly: car.price_monthly ? String(car.price_monthly) : "",
       deposit_amount: car.deposit_amount ? String(car.deposit_amount) : "",
     });
     setEditingCarDetails(true);
@@ -305,6 +311,9 @@ export default function Dashboard() {
       .update({
         ...editCarForm,
         price_per_day: Number(editCarForm.price_per_day),
+        price_3days: editCarForm.price_3days ? Number(editCarForm.price_3days) : 0,
+        price_7days: editCarForm.price_7days ? Number(editCarForm.price_7days) : 0,
+        price_monthly: editCarForm.price_monthly ? Number(editCarForm.price_monthly) : 0,
         deposit_amount: editCarForm.deposit_amount ? Number(editCarForm.deposit_amount) : 0,
       })
       .eq("id", carId);
@@ -393,7 +402,7 @@ export default function Dashboard() {
   const availableCars = cars.filter((c) => c.status === "available");
   const nDays = daysBetween(bookingStart, bookingEnd);
   const selectedCar = cars.find((c) => c.id === bookingCarId);
-  const total = selectedCar ? selectedCar.price_per_day * nDays : 0;
+  const total = selectedCar ? calcRentalTotal(selectedCar, nDays) : 0;
 
   const filteredMembers = members.filter(
     (m) => m.name.toLowerCase().includes(memberQuery.toLowerCase()) || m.phone.includes(memberQuery)
@@ -835,7 +844,7 @@ export default function Dashboard() {
               </div>
 
               <div className="mt-4 flex items-center justify-between rounded-lg p-3" style={{ background: PAPER }}>
-                <div className="text-xs text-stone-500">{selectedCar ? `${nDays} วัน × ${money(selectedCar.price_per_day)}` : "เลือกรถเพื่อคำนวณราคา"}</div>
+                <div className="text-xs text-stone-500">{selectedCar ? `${nDays} วัน × ${money(Math.round(total / nDays))}/วัน` : "เลือกรถเพื่อคำนวณราคา"}</div>
                 <div className="text-lg font-bold" style={{ color: PLATE_RED, fontFamily: "'IBM Plex Mono', monospace" }}>{money(total)}</div>
               </div>
 
@@ -1113,7 +1122,16 @@ export default function Dashboard() {
               <select value={carForm.type} onChange={(e) => setCarForm({ ...carForm, type: e.target.value })} className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm outline-none">
                 <option>รถเล็ก</option><option>SUV</option><option>กระบะ</option><option>รถตู้/VIP</option>
               </select>
-              <input required type="number" min="0" placeholder="ราคาต่อวัน (บาท)" value={carForm.price_per_day} onChange={(e) => setCarForm({ ...carForm, price_per_day: e.target.value })} className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm outline-none" />
+              <input required type="number" min="0" placeholder="ราคาต่อวัน (บาท) — สำหรับเช่า 1-2 วัน" value={carForm.price_per_day} onChange={(e) => setCarForm({ ...carForm, price_per_day: e.target.value })} className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm outline-none" />
+              <div>
+                <p className="mb-1.5 text-xs font-semibold" style={{ color: INK }}>ราคาตามระยะเวลาเช่า (ไม่บังคับ)</p>
+                <div className="space-y-1.5">
+                  <input type="number" min="0" placeholder="ราคา/วัน สำหรับเช่า 3-6 วัน" value={carForm.price_3days} onChange={(e) => setCarForm({ ...carForm, price_3days: e.target.value })} className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm outline-none" />
+                  <input type="number" min="0" placeholder="ราคา/วัน สำหรับเช่า 7-29 วัน" value={carForm.price_7days} onChange={(e) => setCarForm({ ...carForm, price_7days: e.target.value })} className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm outline-none" />
+                  <input type="number" min="0" placeholder="ราคาเหมา/เดือน (30 วันขึ้นไป)" value={carForm.price_monthly} onChange={(e) => setCarForm({ ...carForm, price_monthly: e.target.value })} className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm outline-none" />
+                </div>
+                <p className="mt-1 text-[10px] text-stone-400">เว้นว่างช่องไหนไว้ได้ ระบบจะใช้ราคาช่วงที่ใกล้กว่าแทนให้อัตโนมัติ</p>
+              </div>
               <div>
                 <input type="number" min="0" placeholder="ค่ามัดจำ/ประกันความเสียหาย (ไม่บังคับ)" value={carForm.deposit_amount} onChange={(e) => setCarForm({ ...carForm, deposit_amount: e.target.value })} className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm outline-none" />
                 <p className="mt-1 text-[10px] text-stone-400">เว้นว่างไว้ได้ ถ้าเว้นว่าง ระบบจะใช้ค่ามัดจำเริ่มต้นของร้านแทน</p>
@@ -1184,7 +1202,7 @@ export default function Dashboard() {
         };
 
         const nDaysSel = rangeStart && rangeEnd ? daysBetween(rangeStart, rangeEnd) : 0;
-        const totalSel = nDaysSel * car.price_per_day;
+        const totalSel = calcRentalTotal(car, nDaysSel);
         const calFilteredMembers = members.filter((m) => m.name.toLowerCase().includes(calMemberQuery.toLowerCase()) || m.phone.includes(calMemberQuery));
 
         const confirmCalendarBooking = async () => {
@@ -1249,7 +1267,10 @@ export default function Dashboard() {
                     <select value={editCarForm.type} onChange={(e) => setEditCarForm({ ...editCarForm, type: e.target.value })} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none">
                       <option>รถเล็ก</option><option>SUV</option><option>กระบะ</option><option>รถตู้/VIP</option>
                     </select>
-                    <input type="number" min="0" placeholder="ราคาต่อวัน (บาท)" value={editCarForm.price_per_day} onChange={(e) => setEditCarForm({ ...editCarForm, price_per_day: e.target.value })} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none" />
+                    <input type="number" min="0" placeholder="ราคาต่อวัน (บาท) — 1-2 วัน" value={editCarForm.price_per_day} onChange={(e) => setEditCarForm({ ...editCarForm, price_per_day: e.target.value })} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none" />
+                    <input type="number" min="0" placeholder="ราคา/วัน — 3-6 วัน (ไม่บังคับ)" value={editCarForm.price_3days} onChange={(e) => setEditCarForm({ ...editCarForm, price_3days: e.target.value })} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none" />
+                    <input type="number" min="0" placeholder="ราคา/วัน — 7-29 วัน (ไม่บังคับ)" value={editCarForm.price_7days} onChange={(e) => setEditCarForm({ ...editCarForm, price_7days: e.target.value })} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none" />
+                    <input type="number" min="0" placeholder="ราคาเหมา/เดือน (ไม่บังคับ)" value={editCarForm.price_monthly} onChange={(e) => setEditCarForm({ ...editCarForm, price_monthly: e.target.value })} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none" />
                     <input type="number" min="0" placeholder="ค่ามัดจำ/ประกันความเสียหาย (ไม่บังคับ)" value={editCarForm.deposit_amount} onChange={(e) => setEditCarForm({ ...editCarForm, deposit_amount: e.target.value })} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none" />
                     <div className="flex gap-2 pt-1">
                       <button onClick={() => setEditingCarDetails(false)} className="flex-1 rounded-lg py-2 text-xs font-semibold text-stone-500" style={{ background: "white", border: "1px solid rgba(0,0,0,0.1)" }}>
