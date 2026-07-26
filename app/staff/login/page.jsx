@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
+import { SHOP_LOGO_URL, SHOP_NAME } from "../../../lib/shopConfig";
 
 const INK = "#262626";
 const RED = "#C0392B";
@@ -39,19 +40,23 @@ export default function LoginPage() {
     >
       <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-sm">
         <div className="mb-5 flex items-center gap-2">
-          <div
-            className="flex h-8 w-11 items-center justify-center rounded-[3px] border-2 border-white text-[9px] font-bold text-white"
-            style={{
-              background: `linear-gradient(180deg, ${RED} 0%, #8E2A1E 100%)`,
-              fontFamily: "'IBM Plex Mono', monospace",
-              boxShadow: "0 0 0 1px rgba(0,0,0,0.15)",
-            }}
-          >
-            รถเช่า
-          </div>
+          {SHOP_LOGO_URL ? (
+            <img src={SHOP_LOGO_URL} alt={SHOP_NAME} className="h-9 w-auto rounded-[3px] object-contain" />
+          ) : (
+            <div
+              className="flex h-8 w-11 items-center justify-center rounded-[3px] border-2 border-white text-[9px] font-bold text-white"
+              style={{
+                background: `linear-gradient(180deg, ${RED} 0%, #8E2A1E 100%)`,
+                fontFamily: "'IBM Plex Mono', monospace",
+                boxShadow: "0 0 0 1px rgba(0,0,0,0.15)",
+              }}
+            >
+              รถเช่า
+            </div>
+          )}
           <div>
             <p className="text-sm font-bold leading-tight" style={{ color: INK }}>
-              จัดการรถเช่า
+              {SHOP_NAME || "จัดการรถเช่า"}
             </p>
             <p className="text-[11px] leading-tight text-stone-400">เข้าสู่ระบบสำหรับพนักงาน</p>
           </div>
