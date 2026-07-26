@@ -69,6 +69,7 @@ function BookingContent() {
   const [done, setDone] = useState(false);
   const [bookingId, setBookingId] = useState(null);
   const [confirmedTotal, setConfirmedTotal] = useState(0);
+  const [confirmedDeposit, setConfirmedDeposit] = useState(0);
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [paymentNotified, setPaymentNotified] = useState(false);
   const [notifying, setNotifying] = useState(false);
@@ -88,21 +89,23 @@ function BookingContent() {
     })();
   }, [preselectCarId]);
 
-  // สร้าง QR พร้อมเพย์ไว้ล่วงหน้าตั้งแต่เปิดหน้า (ไม่ต้องรอจองสำเร็จก่อน เพราะ QR ไม่ได้ผูกกับ booking ใดๆ)
+  const selectedCar = cars.find((c) => c.id === selectedCarId);
+  const depositAmount = selectedCar?.deposit_amount > 0 ? selectedCar.deposit_amount : SHOP_DEPOSIT_AMOUNT;
+
+  // สร้าง QR พร้อมเพย์ใหม่ทุกครั้งที่เปลี่ยนรถที่เลือก เพราะแต่ละคันอาจตั้งค่ามัดจำไม่เท่ากัน
   useEffect(() => {
     if (!SHOP_PROMPTPAY_ID) return;
     (async () => {
       try {
-        const payload = generatePromptPayPayload(SHOP_PROMPTPAY_ID, { amount: SHOP_DEPOSIT_AMOUNT });
+        const payload = generatePromptPayPayload(SHOP_PROMPTPAY_ID, { amount: depositAmount });
         const url = await QRCode.toDataURL(payload, { margin: 1, width: 240 });
         setQrDataUrl(url);
       } catch (qrErr) {
         console.error("สร้างคิวอาร์โค้ดไม่สำเร็จ", qrErr);
       }
     })();
-  }, []);
+  }, [depositAmount]);
 
-  const selectedCar = cars.find((c) => c.id === selectedCarId);
   const todayStr = todayISO();
 
   // เช็กเฉพาะวันที่อยู่ "ระหว่างกลาง" ของการจองอื่น (ไม่รวมวันรับ-วันคืนของเขา)
@@ -166,6 +169,7 @@ function BookingContent() {
     const newBookingId = data;
     setBookingId(newBookingId);
     setConfirmedTotal(totalSel);
+    setConfirmedDeposit(depositAmount);
 
     // อัปโหลดสลิปและแจ้งชำระเงินทันที เพราะบังคับแนบมาตั้งแต่ตอนกดจองแล้ว
     if (slipFile) {
@@ -229,7 +233,7 @@ function BookingContent() {
                 <QrCode size={14} /> {t(lang, "scanPay")}
               </p>
               <img src={qrDataUrl} alt="พร้อมเพย์ QR" className="mx-auto mt-3 h-48 w-48" />
-              <p className="mt-2 text-lg font-bold" style={{ color: RED, fontFamily: "'IBM Plex Mono', monospace" }}>{money(SHOP_DEPOSIT_AMOUNT)}</p>
+              <p className="mt-2 text-lg font-bold" style={{ color: RED, fontFamily: "'IBM Plex Mono', monospace" }}>{money(confirmedDeposit)}</p>
               <p className="text-[11px] text-stone-400">{t(lang, "depositNote", { total: money(confirmedTotal) })}</p>
 
               {paymentNotified ? (
@@ -445,7 +449,7 @@ function BookingContent() {
                             <Loader2 size={20} className="animate-spin" />
                           </div>
                         )}
-                        <p className="mt-1.5 text-base font-bold" style={{ color: RED, fontFamily: "'IBM Plex Mono', monospace" }}>{money(SHOP_DEPOSIT_AMOUNT)}</p>
+                        <p className="mt-1.5 text-base font-bold" style={{ color: RED, fontFamily: "'IBM Plex Mono', monospace" }}>{money(depositAmount)}</p>
                         <p className="text-[11px] text-stone-400">{t(lang, "depositNote", { total: money(totalSel) })}</p>
 
                         <label className="mt-3 flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-black/15 bg-white px-3 py-2.5 text-xs font-semibold" style={{ color: INK }}>
