@@ -205,7 +205,9 @@ export default function Dashboard() {
 
   // ---- add car ----
   const [showAddCar, setShowAddCar] = useState(false);
-  const [carForm, setCarForm] = useState({ plate: "", province: "กรุงเทพมหานคร", brand: "", model: "", type: "รถเล็ก", price_per_day: "", price_3days: "", price_7days: "", price_monthly: "", overtime_hourly_rate: "", deposit_amount: "" });
+  const FEATURE_OPTIONS = ["เครื่องปรับอากาศ", "Bluetooth", "USB", "ABS", "พวงมาลัยเพาเวอร์", "กระจกไฟฟ้า", "กล้องมองหลัง", "Cruise Control", "Airbags", "ระบบนำทาง GPS", "หลังคาซันรูฟ", "เซนเซอร์ถอยจอด"];
+
+  const [carForm, setCarForm] = useState({ plate: "", province: "กรุงเทพมหานคร", brand: "", model: "", type: "รถเล็ก", price_per_day: "", price_3days: "", price_7days: "", price_monthly: "", overtime_hourly_rate: "", deposit_amount: "", seats: "5", doors: "4", transmission: "อัตโนมัติ", luggage_large: "", luggage_small: "", features: [] });
   const [carPhotoFiles, setCarPhotoFiles] = useState([]); // สูงสุด 10 ไฟล์
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
@@ -221,6 +223,13 @@ export default function Dashboard() {
       }
     }
     return urls;
+  };
+
+  const toggleCarFeature = (feature) => {
+    setCarForm((f) => ({
+      ...f,
+      features: f.features.includes(feature) ? f.features.filter((x) => x !== feature) : [...f.features, feature],
+    }));
   };
 
   const submitCar = async (e) => {
@@ -242,10 +251,16 @@ export default function Dashboard() {
       price_monthly: carForm.price_monthly ? Number(carForm.price_monthly) : 0,
       overtime_hourly_rate: carForm.overtime_hourly_rate ? Number(carForm.overtime_hourly_rate) : 0,
       deposit_amount: carForm.deposit_amount ? Number(carForm.deposit_amount) : 0,
+      seats: carForm.seats ? Number(carForm.seats) : 5,
+      doors: carForm.doors ? Number(carForm.doors) : 4,
+      transmission: carForm.transmission || "อัตโนมัติ",
+      luggage_large: carForm.luggage_large ? Number(carForm.luggage_large) : 0,
+      luggage_small: carForm.luggage_small ? Number(carForm.luggage_small) : 0,
+      features: carForm.features,
       status: "available",
       photos,
     });
-    setCarForm({ plate: "", province: "กรุงเทพมหานคร", brand: "", model: "", type: "รถเล็ก", price_per_day: "", price_3days: "", price_7days: "", price_monthly: "", overtime_hourly_rate: "", deposit_amount: "" });
+    setCarForm({ plate: "", province: "กรุงเทพมหานคร", brand: "", model: "", type: "รถเล็ก", price_per_day: "", price_3days: "", price_7days: "", price_monthly: "", overtime_hourly_rate: "", deposit_amount: "", seats: "5", doors: "4", transmission: "อัตโนมัติ", luggage_large: "", luggage_small: "", features: [] });
     setCarPhotoFiles([]);
     setShowAddCar(false);
     fetchAll();
@@ -306,8 +321,21 @@ export default function Dashboard() {
       price_monthly: car.price_monthly ? String(car.price_monthly) : "",
       overtime_hourly_rate: car.overtime_hourly_rate ? String(car.overtime_hourly_rate) : "",
       deposit_amount: car.deposit_amount ? String(car.deposit_amount) : "",
+      seats: car.seats ? String(car.seats) : "5",
+      doors: car.doors ? String(car.doors) : "4",
+      transmission: car.transmission || "อัตโนมัติ",
+      luggage_large: car.luggage_large ? String(car.luggage_large) : "",
+      luggage_small: car.luggage_small ? String(car.luggage_small) : "",
+      features: Array.isArray(car.features) ? car.features : [],
     });
     setEditingCarDetails(true);
+  };
+
+  const toggleEditCarFeature = (feature) => {
+    setEditCarForm((f) => ({
+      ...f,
+      features: f.features.includes(feature) ? f.features.filter((x) => x !== feature) : [...f.features, feature],
+    }));
   };
 
   const saveCarEdit = async (carId) => {
@@ -323,6 +351,12 @@ export default function Dashboard() {
         price_monthly: editCarForm.price_monthly ? Number(editCarForm.price_monthly) : 0,
         overtime_hourly_rate: editCarForm.overtime_hourly_rate ? Number(editCarForm.overtime_hourly_rate) : 0,
         deposit_amount: editCarForm.deposit_amount ? Number(editCarForm.deposit_amount) : 0,
+        seats: editCarForm.seats ? Number(editCarForm.seats) : 5,
+        doors: editCarForm.doors ? Number(editCarForm.doors) : 4,
+        transmission: editCarForm.transmission || "อัตโนมัติ",
+        luggage_large: editCarForm.luggage_large ? Number(editCarForm.luggage_large) : 0,
+        luggage_small: editCarForm.luggage_small ? Number(editCarForm.luggage_small) : 0,
+        features: editCarForm.features,
       })
       .eq("id", carId);
     setSavingCarEdit(false);
@@ -1213,6 +1247,58 @@ export default function Dashboard() {
                 <input type="number" min="0" placeholder="ค่าประกันความเสียหาย (ไม่บังคับ)" value={carForm.deposit_amount} onChange={(e) => setCarForm({ ...carForm, deposit_amount: e.target.value })} className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm outline-none" />
                 <p className="mt-1 text-[10px] text-stone-400">เว้นว่างไว้ได้ถ้ารถคันนี้ไม่มีค่าประกันความเสียหาย (แยกจากค่ามัดจำจองที่คงที่ 1,000 บาททุกคัน)</p>
               </div>
+
+              <div>
+                <p className="mb-1.5 text-xs font-semibold" style={{ color: INK }}>สเปครถ</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] text-stone-400">จำนวนที่นั่ง</label>
+                    <input type="number" min="1" value={carForm.seats} onChange={(e) => setCarForm({ ...carForm, seats: e.target.value })} className="mt-0.5 w-full rounded-lg border border-black/10 px-3 py-2 text-sm outline-none" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-stone-400">จำนวนประตู</label>
+                    <input type="number" min="1" value={carForm.doors} onChange={(e) => setCarForm({ ...carForm, doors: e.target.value })} className="mt-0.5 w-full rounded-lg border border-black/10 px-3 py-2 text-sm outline-none" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-stone-400">ระบบเกียร์</label>
+                    <select value={carForm.transmission} onChange={(e) => setCarForm({ ...carForm, transmission: e.target.value })} className="mt-0.5 w-full rounded-lg border border-black/10 px-3 py-2 text-sm outline-none">
+                      <option>อัตโนมัติ</option>
+                      <option>ธรรมดา</option>
+                    </select>
+                  </div>
+                  <div />
+                  <div>
+                    <label className="text-[10px] text-stone-400">กระเป๋าใหญ่ (ไม่บังคับ)</label>
+                    <input type="number" min="0" value={carForm.luggage_large} onChange={(e) => setCarForm({ ...carForm, luggage_large: e.target.value })} className="mt-0.5 w-full rounded-lg border border-black/10 px-3 py-2 text-sm outline-none" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-stone-400">กระเป๋าเล็ก (ไม่บังคับ)</label>
+                    <input type="number" min="0" value={carForm.luggage_small} onChange={(e) => setCarForm({ ...carForm, luggage_small: e.target.value })} className="mt-0.5 w-full rounded-lg border border-black/10 px-3 py-2 text-sm outline-none" />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-1.5 text-xs font-semibold" style={{ color: INK }}>ฟีเจอร์เสริม (เลือกได้หลายรายการ)</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {FEATURE_OPTIONS.map((f) => (
+                    <button
+                      type="button"
+                      key={f}
+                      onClick={() => toggleCarFeature(f)}
+                      className="rounded-full border px-2.5 py-1 text-[11px] font-medium"
+                      style={
+                        carForm.features.includes(f)
+                          ? { background: PLATE_RED, borderColor: PLATE_RED, color: "white" }
+                          : { background: "white", borderColor: "rgba(0,0,0,0.12)", color: INK }
+                      }
+                    >
+                      {f}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div>
                 <label className="text-xs text-stone-500">รูปรถ (ไม่บังคับ สูงสุด 10 รูป)</label>
                 <input
@@ -1359,6 +1445,55 @@ export default function Dashboard() {
                     <input type="number" min="0" placeholder="ราคาเหมา/เดือน (ไม่บังคับ)" value={editCarForm.price_monthly} onChange={(e) => setEditCarForm({ ...editCarForm, price_monthly: e.target.value })} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none" />
                     <input type="number" min="0" placeholder="ค่าปรับ/ชม. คืนช้า (ไม่บังคับ)" value={editCarForm.overtime_hourly_rate} onChange={(e) => setEditCarForm({ ...editCarForm, overtime_hourly_rate: e.target.value })} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none" />
                     <input type="number" min="0" placeholder="ค่าประกันความเสียหาย (ไม่บังคับ)" value={editCarForm.deposit_amount} onChange={(e) => setEditCarForm({ ...editCarForm, deposit_amount: e.target.value })} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none" />
+
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <div>
+                        <label className="text-[10px] text-stone-400">จำนวนที่นั่ง</label>
+                        <input type="number" min="1" value={editCarForm.seats} onChange={(e) => setEditCarForm({ ...editCarForm, seats: e.target.value })} className="mt-0.5 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-stone-400">จำนวนประตู</label>
+                        <input type="number" min="1" value={editCarForm.doors} onChange={(e) => setEditCarForm({ ...editCarForm, doors: e.target.value })} className="mt-0.5 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-stone-400">ระบบเกียร์</label>
+                        <select value={editCarForm.transmission} onChange={(e) => setEditCarForm({ ...editCarForm, transmission: e.target.value })} className="mt-0.5 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none">
+                          <option>อัตโนมัติ</option>
+                          <option>ธรรมดา</option>
+                        </select>
+                      </div>
+                      <div />
+                      <div>
+                        <label className="text-[10px] text-stone-400">กระเป๋าใหญ่</label>
+                        <input type="number" min="0" value={editCarForm.luggage_large} onChange={(e) => setEditCarForm({ ...editCarForm, luggage_large: e.target.value })} className="mt-0.5 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-stone-400">กระเป๋าเล็ก</label>
+                        <input type="number" min="0" value={editCarForm.luggage_small} onChange={(e) => setEditCarForm({ ...editCarForm, luggage_small: e.target.value })} className="mt-0.5 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="mb-1.5 mt-1 text-[10px] text-stone-400">ฟีเจอร์เสริม</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {FEATURE_OPTIONS.map((f) => (
+                          <button
+                            type="button"
+                            key={f}
+                            onClick={() => toggleEditCarFeature(f)}
+                            className="rounded-full border px-2.5 py-1 text-[11px] font-medium"
+                            style={
+                              editCarForm.features.includes(f)
+                                ? { background: PLATE_RED, borderColor: PLATE_RED, color: "white" }
+                                : { background: "white", borderColor: "rgba(0,0,0,0.12)", color: INK }
+                            }
+                          >
+                            {f}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
                     <div className="flex gap-2 pt-1">
                       <button onClick={() => setEditingCarDetails(false)} className="flex-1 rounded-lg py-2 text-xs font-semibold text-stone-500" style={{ background: "white", border: "1px solid rgba(0,0,0,0.1)" }}>
                         ยกเลิก
