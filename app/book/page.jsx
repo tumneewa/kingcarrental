@@ -63,6 +63,7 @@ function BookingContent() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [pickupTime, setPickupTime] = useState("10:00");
+  const [hasLicense, setHasLicense] = useState(false);
   const [returnTime, setReturnTime] = useState("10:00");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -151,6 +152,10 @@ function BookingContent() {
   const submitRequest = async (e) => {
     e.preventDefault();
     if (!selectedCar || !rangeStart || !rangeEnd || !name.trim() || !phone.trim()) return;
+    if (!hasLicense) {
+      setSubmitError(t(lang, "licenseRequiredHint"));
+      return;
+    }
     if (SHOP_PROMPTPAY_ID && !slipFile) {
       setSubmitError(t(lang, "slipRequiredHint"));
       return;
@@ -310,7 +315,7 @@ function BookingContent() {
           )}
 
           <button
-            onClick={() => { setDone(false); setSelectedCarId(null); setName(""); setPhone(""); setRangeStart(null); setRangeEnd(null); setSlipFile(null); setPaymentNotified(false); setBookingId(null); setSubmitError(""); }}
+            onClick={() => { setDone(false); setSelectedCarId(null); setName(""); setPhone(""); setRangeStart(null); setRangeEnd(null); setSlipFile(null); setPaymentNotified(false); setBookingId(null); setSubmitError(""); setHasLicense(false); }}
             className="mt-2 rounded-lg px-4 py-2 text-xs font-semibold text-white"
             style={{ background: RED }}
           >
@@ -500,7 +505,15 @@ function BookingContent() {
                     </div>
                     <div className="flex items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2">
                       <Phone size={14} className="text-stone-400" />
-                      <input required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t(lang, "phonePlaceholder")} className="w-full text-sm outline-none" />
+                      <input
+                        required
+                        type="tel"
+                        inputMode="numeric"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, "").slice(0, 15))}
+                        placeholder={t(lang, "phonePlaceholder")}
+                        className="w-full text-sm outline-none"
+                      />
                     </div>
 
                     {SHOP_PROMPTPAY_ID && (
@@ -562,11 +575,22 @@ function BookingContent() {
                       <p className="text-[10px] text-stone-400">{t(lang, "overtimeSurchargeNote", { hours: Math.round(rentalCalc.extraHours * 10) / 10, amount: money(rentalCalc.surcharge) })}</p>
                     )}
 
+                    <label className="flex items-start gap-2 rounded-lg border border-black/10 bg-white px-3 py-2.5 text-xs">
+                      <input
+                        type="checkbox"
+                        checked={hasLicense}
+                        onChange={(e) => setHasLicense(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 shrink-0 accent-current"
+                        style={{ color: RED }}
+                      />
+                      <span style={{ color: INK }}>{t(lang, "licenseConfirmLabel")}</span>
+                    </label>
+
                     {submitError && <p className="text-xs font-medium text-red-600">{submitError}</p>}
 
                     <button
                       type="submit"
-                      disabled={submitting || uploadingSlip || (!!SHOP_PROMPTPAY_ID && !slipFile)}
+                      disabled={submitting || uploadingSlip || !hasLicense || (!!SHOP_PROMPTPAY_ID && !slipFile)}
                       className="w-full rounded-lg py-2.5 text-sm font-bold text-white disabled:opacity-50"
                       style={{ background: RED }}
                     >
