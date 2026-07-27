@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 import { todayISO, daysBetween, money, formatDate, formatTime, dateISO, buildMonthGrid, hasTimeConflict, calcRentalTotalWithTime } from "../../lib/utils";
-import { SHOP_LOGO_URL, SHOP_NAME, SHOP_DEPOSIT_AMOUNT } from "../../lib/shopConfig";
+import { SHOP_LOGO_URL, SHOP_NAME, SHOP_DEPOSIT_AMOUNT, SHOP_ADDRESS } from "../../lib/shopConfig";
 import PhotoThumb, { carPhotos } from "../../components/PhotoThumb";
 import {
   LayoutDashboard,
@@ -30,6 +30,7 @@ import {
   ArrowLeftCircle,
   Copy,
   ExternalLink,
+  MapPin,
 } from "lucide-react";
 
 // ---------- palette / tokens ----------
@@ -285,6 +286,8 @@ export default function Dashboard() {
   const [calMemberQuery, setCalMemberQuery] = useState("");
   const [calStartTime, setCalStartTime] = useState("10:00");
   const [calEndTime, setCalEndTime] = useState("10:00");
+  const [calPickupLocation, setCalPickupLocation] = useState("");
+  const [calReturnLocation, setCalReturnLocation] = useState("");
   const [editingCarDetails, setEditingCarDetails] = useState(false);
   const [editCarForm, setEditCarForm] = useState(null);
   const [savingCarEdit, setSavingCarEdit] = useState(false);
@@ -345,6 +348,8 @@ export default function Dashboard() {
     setCalMemberQuery("");
     setCalStartTime("10:00");
     setCalEndTime("10:00");
+    setCalPickupLocation("");
+    setCalReturnLocation("");
     setEditingCarDetails(false);
     setEditCarForm(null);
     setBookingConflictError("");
@@ -357,6 +362,8 @@ export default function Dashboard() {
     setCalMemberQuery("");
     setCalStartTime("10:00");
     setCalEndTime("10:00");
+    setCalPickupLocation("");
+    setCalReturnLocation("");
     setEditingCarDetails(false);
     setEditCarForm(null);
     setBookingConflictError("");
@@ -413,6 +420,8 @@ export default function Dashboard() {
   const [bookingEnd, setBookingEnd] = useState(todayISO());
   const [bookingStartTime, setBookingStartTime] = useState("10:00");
   const [bookingEndTime, setBookingEndTime] = useState("10:00");
+  const [bookingPickupLocation, setBookingPickupLocation] = useState("");
+  const [bookingReturnLocation, setBookingReturnLocation] = useState("");
   const [memberQuery, setMemberQuery] = useState("");
   const [bookingConflictError, setBookingConflictError] = useState("");
 
@@ -446,6 +455,8 @@ export default function Dashboard() {
       overtime_surcharge: bookingCalc.surcharge,
       deposit_amount: SHOP_DEPOSIT_AMOUNT,
       damage_insurance_amount: selectedCar?.deposit_amount > 0 ? selectedCar.deposit_amount : 0,
+      pickup_location: bookingPickupLocation.trim() || SHOP_ADDRESS,
+      return_location: bookingReturnLocation.trim() || SHOP_ADDRESS,
       total,
       status: "active",
       source: "staff",
@@ -458,6 +469,8 @@ export default function Dashboard() {
     setBookingEnd(todayISO());
     setBookingStartTime("10:00");
     setBookingEndTime("10:00");
+    setBookingPickupLocation("");
+    setBookingReturnLocation("");
     setTab("bookings");
     fetchAll();
   };
@@ -868,6 +881,16 @@ export default function Dashboard() {
                   <input type="time" value={bookingEndTime} onChange={(e) => setBookingEndTime(e.target.value)} className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm outline-none" />
                 </div>
               </div>
+              <div className="mt-2 flex gap-4">
+                <div className="flex-1">
+                  <label className="text-xs text-stone-500">สถานที่รับรถ</label>
+                  <input value={bookingPickupLocation} onChange={(e) => setBookingPickupLocation(e.target.value)} placeholder={SHOP_ADDRESS} className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm outline-none" />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-stone-500">สถานที่คืนรถ</label>
+                  <input value={bookingReturnLocation} onChange={(e) => setBookingReturnLocation(e.target.value)} placeholder={SHOP_ADDRESS} className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm outline-none" />
+                </div>
+              </div>
 
               <div className="mt-4 flex items-center justify-between rounded-lg p-3" style={{ background: PAPER }}>
                 <div className="text-xs text-stone-500">{selectedCar ? `${nDays} วัน × ${money(Math.round((total - bookingCalc.surcharge) / nDays))}/วัน` : "เลือกรถเพื่อคำนวณราคา"}</div>
@@ -929,6 +952,11 @@ export default function Dashboard() {
                           <p className="text-sm font-semibold" style={{ color: INK }}>{carLabel(b.car_id)}</p>
                           <p className="text-xs text-stone-400" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{carPlate(b.car_id)}</p>
                           <p className="mt-1 text-xs text-stone-500">ผู้เช่า: {memberName(b.member_id)}</p>
+                          {b.pickup_location && (
+                            <p className="mt-1 flex items-start gap-1 text-[11px] text-stone-400">
+                              <MapPin size={11} className="mt-0.5 shrink-0" /> {b.pickup_location}
+                            </p>
+                          )}
                         </div>
                         <span className="rounded-full px-2 py-1 text-xs font-bold" style={{ background: "#FBE4E1", color: PLATE_RED, fontFamily: "'IBM Plex Mono', monospace" }}>
                           {formatTime(b.start_time)}
@@ -977,6 +1005,11 @@ export default function Dashboard() {
                           <p className="text-sm font-semibold" style={{ color: INK }}>{carLabel(b.car_id)}</p>
                           <p className="text-xs text-stone-400" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{carPlate(b.car_id)}</p>
                           <p className="mt-1 text-xs text-stone-500">ผู้เช่า: {memberName(b.member_id)}</p>
+                          {b.return_location && (
+                            <p className="mt-1 flex items-start gap-1 text-[11px] text-stone-400">
+                              <MapPin size={11} className="mt-0.5 shrink-0" /> {b.return_location}
+                            </p>
+                          )}
                         </div>
                         <span className="rounded-full px-2 py-1 text-xs font-bold" style={{ background: "#E7F3EC", color: "#3F7A4E", fontFamily: "'IBM Plex Mono', monospace" }}>
                           {formatTime(b.end_time)}
@@ -1270,6 +1303,8 @@ export default function Dashboard() {
             overtime_surcharge: calCalc.surcharge,
             deposit_amount: SHOP_DEPOSIT_AMOUNT,
             damage_insurance_amount: car.deposit_amount > 0 ? car.deposit_amount : 0,
+            pickup_location: calPickupLocation.trim() || SHOP_ADDRESS,
+            return_location: calReturnLocation.trim() || SHOP_ADDRESS,
             total: totalSel,
             status: "active",
             source: "staff",
@@ -1441,6 +1476,16 @@ export default function Dashboard() {
                         <div className="flex-1">
                           <label className="text-[10px] text-stone-400">เวลาคืนรถ</label>
                           <input type="time" value={calEndTime} onChange={(e) => setCalEndTime(e.target.value)} className="mt-0.5 w-full rounded-lg border border-black/10 bg-white px-2 py-1.5 text-xs outline-none" />
+                        </div>
+                      </div>
+                      <div className="mt-2 flex gap-2">
+                        <div className="flex-1">
+                          <label className="text-[10px] text-stone-400">สถานที่รับรถ</label>
+                          <input value={calPickupLocation} onChange={(e) => setCalPickupLocation(e.target.value)} placeholder={SHOP_ADDRESS} className="mt-0.5 w-full rounded-lg border border-black/10 bg-white px-2 py-1.5 text-xs outline-none" />
+                        </div>
+                        <div className="flex-1">
+                          <label className="text-[10px] text-stone-400">สถานที่คืนรถ</label>
+                          <input value={calReturnLocation} onChange={(e) => setCalReturnLocation(e.target.value)} placeholder={SHOP_ADDRESS} className="mt-0.5 w-full rounded-lg border border-black/10 bg-white px-2 py-1.5 text-xs outline-none" />
                         </div>
                       </div>
 
