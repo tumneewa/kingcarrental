@@ -163,6 +163,9 @@ function BookingContent() {
       p_end_date: rangeEnd,
       p_start_time: pickupTime,
       p_end_time: returnTime,
+      p_rental_subtotal: rentalCalc.total - rentalCalc.surcharge,
+      p_overtime_surcharge: rentalCalc.surcharge,
+      p_deposit_amount: depositAmount,
     });
     if (error) {
       setSubmitting(false);
