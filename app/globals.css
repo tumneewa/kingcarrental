@@ -15,17 +15,9 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(0.4);
 }
 
-/* ลายริบบิ้นจางๆ โทนเทา ห่างๆ เรียบหรูแบบเรียบง่าย ใช้กับพื้นหลังหลักของทุกหน้า */
+/* พื้นหลังสีขาวเรียบๆ ใช้กับพื้นหลังหลักของทุกหน้า */
 .paper-bg {
-  background-color: #F6F6F5;
-  background-image: repeating-linear-gradient(
-    120deg,
-    rgba(38, 38, 38, 0.025) 0px,
-    rgba(38, 38, 38, 0.025) 2px,
-    rgba(38, 38, 38, 0.01) 40px,
-    transparent 100px,
-    transparent 260px
-  );
+  background-color: #ffffff;
 }
 
 /* ทำให้ปุ่มทุกปุ่มในเว็บเปลี่ยนเป็นเคอร์เซอร์รูปมือเมื่อชี้ (ยกเว้นปุ่มที่ปิดใช้งานอยู่) */
