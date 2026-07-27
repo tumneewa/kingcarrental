@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
 import { SHOP_NAME, SHOP_LOGO_URL, SHOP_ADDRESS, SHOP_PHONE } from "../../../lib/shopConfig";
 import { money, formatDate, formatTime } from "../../../lib/utils";
-import { Printer, CheckCircle2, Clock, XCircle, Loader2, AlertTriangle } from "lucide-react";
+import { Printer, CheckCircle2, Clock, XCircle, Loader2, AlertTriangle, MapPin } from "lucide-react";
 
 const INK = "#262626";
 const RED = "#C0392B";
@@ -118,11 +118,13 @@ export default function BookingReceiptPage() {
               <p className="text-[11px] font-semibold text-stone-500">วันรับรถ</p>
               <p className="mt-0.5 text-sm font-bold" style={{ color: INK }}>{formatDate(booking.start_date)}</p>
               <p className="text-xs text-stone-500">{formatTime(booking.start_time)}</p>
+              {booking.pickup_location && <p className="mt-1 flex items-start gap-1 text-[11px] text-stone-500"><MapPin size={11} className="mt-0.5 shrink-0" />{booking.pickup_location}</p>}
             </div>
             <div className="rounded-lg border border-black/5 p-3" style={{ background: PAPER }}>
               <p className="text-[11px] font-semibold text-stone-500">วันคืนรถ</p>
               <p className="mt-0.5 text-sm font-bold" style={{ color: INK }}>{formatDate(booking.end_date)}</p>
               <p className="text-xs text-stone-500">{formatTime(booking.end_time)}</p>
+              {booking.return_location && <p className="mt-1 flex items-start gap-1 text-[11px] text-stone-500"><MapPin size={11} className="mt-0.5 shrink-0" />{booking.return_location}</p>}
             </div>
           </div>
 
