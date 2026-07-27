@@ -444,7 +444,8 @@ export default function Dashboard() {
       end_time: bookingEndTime,
       rental_subtotal: total - bookingCalc.surcharge,
       overtime_surcharge: bookingCalc.surcharge,
-      deposit_amount: selectedCar?.deposit_amount > 0 ? selectedCar.deposit_amount : SHOP_DEPOSIT_AMOUNT,
+      deposit_amount: SHOP_DEPOSIT_AMOUNT,
+      damage_insurance_amount: selectedCar?.deposit_amount > 0 ? selectedCar.deposit_amount : 0,
       total,
       status: "active",
       source: "staff",
@@ -774,7 +775,9 @@ export default function Dashboard() {
                       <span className="text-lg font-bold" style={{ color: PLATE_RED, fontFamily: "'IBM Plex Mono', monospace" }}>{money(c.price_per_day)}</span>
                       <span className="text-xs text-stone-400">/ วัน</span>
                     </div>
-                    <p className="mt-0.5 text-[11px] text-stone-400">มัดจำ {money(c.deposit_amount > 0 ? c.deposit_amount : SHOP_DEPOSIT_AMOUNT)}</p>
+                    {c.deposit_amount > 0 && (
+                      <p className="mt-0.5 text-[11px] text-stone-400">ค่าประกันความเสียหาย {money(c.deposit_amount)}</p>
+                    )}
 
                     <button onClick={(e) => { e.stopPropagation(); openCarDetail(c.id); }} className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold" style={{ background: PAPER, color: INK }}>
                       <CalendarPlus size={12} /> ดูวันว่าง
@@ -1174,8 +1177,8 @@ export default function Dashboard() {
                 <p className="mt-1 text-[10px] text-stone-400">กรณีคืนรถช้าเกิน 60 นาทีแต่ไม่เกิน 4 ชม. เว้นว่างไว้ได้ ระบบจะคิดเป็น 1/4 ของราคาต่อวันแทน</p>
               </div>
               <div>
-                <input type="number" min="0" placeholder="ค่ามัดจำ/ประกันความเสียหาย (ไม่บังคับ)" value={carForm.deposit_amount} onChange={(e) => setCarForm({ ...carForm, deposit_amount: e.target.value })} className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm outline-none" />
-                <p className="mt-1 text-[10px] text-stone-400">เว้นว่างไว้ได้ ถ้าเว้นว่าง ระบบจะใช้ค่ามัดจำเริ่มต้นของร้านแทน</p>
+                <input type="number" min="0" placeholder="ค่าประกันความเสียหาย (ไม่บังคับ)" value={carForm.deposit_amount} onChange={(e) => setCarForm({ ...carForm, deposit_amount: e.target.value })} className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm outline-none" />
+                <p className="mt-1 text-[10px] text-stone-400">เว้นว่างไว้ได้ถ้ารถคันนี้ไม่มีค่าประกันความเสียหาย (แยกจากค่ามัดจำจองที่คงที่ 1,000 บาททุกคัน)</p>
               </div>
               <div>
                 <label className="text-xs text-stone-500">รูปรถ (ไม่บังคับ สูงสุด 10 รูป)</label>
@@ -1265,7 +1268,8 @@ export default function Dashboard() {
             end_time: calEndTime,
             rental_subtotal: totalSel - calCalc.surcharge,
             overtime_surcharge: calCalc.surcharge,
-            deposit_amount: car.deposit_amount > 0 ? car.deposit_amount : SHOP_DEPOSIT_AMOUNT,
+            deposit_amount: SHOP_DEPOSIT_AMOUNT,
+            damage_insurance_amount: car.deposit_amount > 0 ? car.deposit_amount : 0,
             total: totalSel,
             status: "active",
             source: "staff",
@@ -1319,7 +1323,7 @@ export default function Dashboard() {
                     <input type="number" min="0" placeholder="ราคา/วัน — 7-29 วัน (ไม่บังคับ)" value={editCarForm.price_7days} onChange={(e) => setEditCarForm({ ...editCarForm, price_7days: e.target.value })} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none" />
                     <input type="number" min="0" placeholder="ราคาเหมา/เดือน (ไม่บังคับ)" value={editCarForm.price_monthly} onChange={(e) => setEditCarForm({ ...editCarForm, price_monthly: e.target.value })} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none" />
                     <input type="number" min="0" placeholder="ค่าปรับ/ชม. คืนช้า (ไม่บังคับ)" value={editCarForm.overtime_hourly_rate} onChange={(e) => setEditCarForm({ ...editCarForm, overtime_hourly_rate: e.target.value })} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none" />
-                    <input type="number" min="0" placeholder="ค่ามัดจำ/ประกันความเสียหาย (ไม่บังคับ)" value={editCarForm.deposit_amount} onChange={(e) => setEditCarForm({ ...editCarForm, deposit_amount: e.target.value })} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none" />
+                    <input type="number" min="0" placeholder="ค่าประกันความเสียหาย (ไม่บังคับ)" value={editCarForm.deposit_amount} onChange={(e) => setEditCarForm({ ...editCarForm, deposit_amount: e.target.value })} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none" />
                     <div className="flex gap-2 pt-1">
                       <button onClick={() => setEditingCarDetails(false)} className="flex-1 rounded-lg py-2 text-xs font-semibold text-stone-500" style={{ background: "white", border: "1px solid rgba(0,0,0,0.1)" }}>
                         ยกเลิก
