@@ -140,36 +140,35 @@ export default function BookingReceiptPage() {
                   <span style={{ color: INK }}>{money(booking.overtime_surcharge)}</span>
                 </div>
               )}
-              <div className="flex items-center justify-between border-t border-dashed border-black/10 pt-1.5 font-semibold">
-                <span style={{ color: INK }}>ยอดรวมค่าเช่า</span>
-                <span style={{ color: RED, fontFamily: "'IBM Plex Mono', monospace" }}>{money(booking.total)}</span>
+              {booking.damage_insurance_amount > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-stone-500">ค่าประกันความเสียหาย</span>
+                  <span style={{ color: INK }}>{money(booking.damage_insurance_amount)}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between border-t border-dashed border-black/10 pt-1.5">
+                <span className="text-stone-500">รวมทั้งหมด</span>
+                <span style={{ color: INK }}>{money(booking.total + (booking.damage_insurance_amount || 0))}</span>
               </div>
               {booking.deposit_amount > 0 && (
-                <>
-                  <div className="flex items-center justify-between">
-                    <span className="text-stone-500">ค่ามัดจำที่จ่ายแล้ว</span>
-                    <span style={{ color: INK }}>− {money(booking.deposit_amount)}</span>
-                  </div>
-                  <div className="flex items-center justify-between border-t border-dashed border-black/10 pt-1.5 font-semibold">
-                    <span style={{ color: INK }}>ยอดที่ต้องจ่ายวันรับรถ</span>
-                    <span style={{ color: RED, fontFamily: "'IBM Plex Mono', monospace" }}>{money(Math.max(0, booking.total - booking.deposit_amount))}</span>
-                  </div>
-                </>
+                <div className="flex items-center justify-between">
+                  <span className="text-stone-500">หัก ค่ามัดจำที่จ่ายแล้ว</span>
+                  <span style={{ color: INK }}>− {money(booking.deposit_amount)}</span>
+                </div>
               )}
-            </div>
-          </div>
-
-          {booking.damage_insurance_amount > 0 && (
-            <div className="mt-3 rounded-lg border border-dashed p-3" style={{ borderColor: "#D9C48A", background: "#FBF6E9" }}>
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold" style={{ color: "#8A6D1F" }}>ค่าประกันความเสียหาย</span>
-                <span className="text-sm font-bold" style={{ color: "#8A6D1F", fontFamily: "'IBM Plex Mono', monospace" }}>{money(booking.damage_insurance_amount)}</span>
+              <div className="flex items-center justify-between border-t border-dashed border-black/10 pt-1.5 font-semibold">
+                <span style={{ color: INK }}>ยอดที่ต้องชำระวันรับรถ</span>
+                <span style={{ color: RED, fontFamily: "'IBM Plex Mono', monospace" }}>
+                  {money(Math.max(0, booking.total + (booking.damage_insurance_amount || 0) - (booking.deposit_amount || 0)))}
+                </span>
               </div>
-              <p className="mt-1 text-[10px] text-stone-500">
-                เรียกเก็บ ณ วันรับรถ (แยกจากค่ามัดจำ) — จะ<span className="font-semibold">ได้รับคืนเต็มจำนวนในวันคืนรถ</span> หากไม่พบความเสียหายเพิ่มเติมกับตัวรถ
-              </p>
             </div>
-          )}
+            {booking.damage_insurance_amount > 0 && (
+              <p className="mt-2 text-[10px] text-stone-400">
+                * ค่าประกันความเสียหาย {money(booking.damage_insurance_amount)} จะ<span className="font-semibold">ได้รับคืนเต็มจำนวนในวันคืนรถ</span> หากไม่พบความเสียหายเพิ่มเติมกับตัวรถ
+              </p>
+            )}
+          </div>
 
           {/* payment status */}
           <div className="mt-3 flex items-center justify-between rounded-lg px-3 py-2.5" style={{ background: PAPER }}>
