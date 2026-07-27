@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
 import { SHOP_NAME, SHOP_LOGO_URL, SHOP_ADDRESS, SHOP_PHONE } from "../../../lib/shopConfig";
 import { money, formatDate, formatTime } from "../../../lib/utils";
-import { Printer, CheckCircle2, Clock, XCircle, Loader2 } from "lucide-react";
+import { Printer, CheckCircle2, Clock, XCircle, Loader2, AlertTriangle } from "lucide-react";
 
 const INK = "#262626";
 const RED = "#C0392B";
@@ -168,6 +168,14 @@ export default function BookingReceiptPage() {
                 * ค่าประกันความเสียหาย {money(booking.damage_insurance_amount)} จะ<span className="font-semibold">ได้รับคืนเต็มจำนวนในวันคืนรถ</span> หากไม่พบความเสียหายเพิ่มเติมกับตัวรถ
               </p>
             )}
+          </div>
+
+          {/* driving license notice */}
+          <div className="mt-3 flex items-start gap-2 rounded-lg border border-dashed p-3" style={{ borderColor: "#D9C48A", background: "#FBF6E9" }}>
+            <AlertTriangle size={16} className="mt-0.5 shrink-0" style={{ color: "#8A6D1F" }} />
+            <p className="text-[11px]" style={{ color: "#6B5416" }}>
+              กรุณาเตรียม<span className="font-semibold">ใบขับขี่รถยนต์ตัวจริง (ที่ยังไม่หมดอายุ)</span> มาแสดงในวันรับรถ หากไม่มีใบขับขี่ ทางร้านขออนุญาตปฏิเสธการให้บริการ
+            </p>
           </div>
 
           {/* payment status */}
