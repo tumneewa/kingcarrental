@@ -6,11 +6,11 @@ import generatePromptPayPayload from "promptpay-qr";
 import QRCode from "qrcode";
 import { supabase } from "../../lib/supabaseClient";
 import { todayISO, daysBetween, money, formatDate, formatTime, shiftTime, calcRentalTotalWithTime, dateISO, buildMonthGrid } from "../../lib/utils";
-import { SHOP_PROMPTPAY_ID, SHOP_DEPOSIT_AMOUNT, SHOP_LOGO_URL } from "../../lib/shopConfig";
+import { SHOP_PROMPTPAY_ID, SHOP_DEPOSIT_AMOUNT, SHOP_LOGO_URL, SHOP_ADDRESS } from "../../lib/shopConfig";
 import { t, useLang, localeFor } from "../../lib/i18n";
 import LangSwitcher from "../../components/LangSwitcher";
 import PhotoThumb from "../../components/PhotoThumb";
-import { Phone, User, Clock, Loader2, CheckCircle2, Car as CarIcon, QrCode, Upload } from "lucide-react";
+import { Phone, User, Clock, MapPin, Loader2, CheckCircle2, Car as CarIcon, QrCode, Upload } from "lucide-react";
 
 const INK = "#262626";
 const RED = "#C0392B";
@@ -64,6 +64,8 @@ function BookingContent() {
   const [phone, setPhone] = useState("");
   const [pickupTime, setPickupTime] = useState("10:00");
   const [hasLicense, setHasLicense] = useState(false);
+  const [pickupLocation, setPickupLocation] = useState("");
+  const [returnLocation, setReturnLocation] = useState("");
   const [returnTime, setReturnTime] = useState("10:00");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -174,6 +176,8 @@ function BookingContent() {
       p_overtime_surcharge: rentalCalc.surcharge,
       p_deposit_amount: depositAmount,
       p_damage_insurance_amount: damageInsuranceAmount,
+      p_pickup_location: pickupLocation.trim() || SHOP_ADDRESS,
+      p_return_location: returnLocation.trim() || SHOP_ADDRESS,
     });
     if (error) {
       setSubmitting(false);
@@ -315,7 +319,7 @@ function BookingContent() {
           )}
 
           <button
-            onClick={() => { setDone(false); setSelectedCarId(null); setName(""); setPhone(""); setRangeStart(null); setRangeEnd(null); setSlipFile(null); setPaymentNotified(false); setBookingId(null); setSubmitError(""); setHasLicense(false); }}
+            onClick={() => { setDone(false); setSelectedCarId(null); setName(""); setPhone(""); setRangeStart(null); setRangeEnd(null); setSlipFile(null); setPaymentNotified(false); setBookingId(null); setSubmitError(""); setHasLicense(false); setPickupLocation(""); setReturnLocation(""); }}
             className="mt-2 rounded-lg px-4 py-2 text-xs font-semibold text-white"
             style={{ background: RED }}
           >
@@ -499,6 +503,32 @@ function BookingContent() {
                         </div>
                       </div>
                     </div>
+
+                    <div className="flex flex-1 items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2">
+                      <MapPin size={14} className="mt-0.5 shrink-0 text-stone-400" />
+                      <div className="w-full">
+                        <label className="block text-[10px] text-stone-400">{t(lang, "pickupLocationLabel")}</label>
+                        <input
+                          value={pickupLocation}
+                          onChange={(e) => setPickupLocation(e.target.value)}
+                          placeholder={SHOP_ADDRESS}
+                          className="w-full text-sm outline-none"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex flex-1 items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2">
+                      <MapPin size={14} className="mt-0.5 shrink-0 text-stone-400" />
+                      <div className="w-full">
+                        <label className="block text-[10px] text-stone-400">{t(lang, "returnLocationLabel")}</label>
+                        <input
+                          value={returnLocation}
+                          onChange={(e) => setReturnLocation(e.target.value)}
+                          placeholder={SHOP_ADDRESS}
+                          className="w-full text-sm outline-none"
+                        />
+                      </div>
+                    </div>
+
                     <div className="flex items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2">
                       <User size={14} className="text-stone-400" />
                       <input required value={name} onChange={(e) => setName(e.target.value)} placeholder={t(lang, "namePlaceholder")} className="w-full text-sm outline-none" />
