@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { money } from "../lib/utils";
-import { SHOP_NAME, SHOP_TAGLINE, SHOP_ABOUT, SHOP_ADDRESS, SHOP_PHONE, SHOP_HOURS, SHOP_LOGO_URL, SHOP_HERO_IMAGE_URL } from "../lib/shopConfig";
+import { SHOP_NAME, SHOP_TAGLINE, SHOP_ABOUT, SHOP_ADDRESS, SHOP_PHONE, SHOP_HOURS, SHOP_LOGO_URL, SHOP_HERO_IMAGE_URL, SHOP_HERO_IMAGES } from "../lib/shopConfig";
 import { t, useLang } from "../lib/i18n";
 import LangSwitcher from "../components/LangSwitcher";
 import PhotoThumb from "../components/PhotoThumb";
@@ -38,6 +38,14 @@ function Plate({ plate, province }) {
 
 export default function HomePage() {
   const [cars, setCars] = useState([]);
+  const heroImages = SHOP_HERO_IMAGES && SHOP_HERO_IMAGES.length > 0 ? SHOP_HERO_IMAGES : SHOP_HERO_IMAGE_URL ? [SHOP_HERO_IMAGE_URL] : [];
+  const [heroIndex, setHeroIndex] = useState(0);
+
+  useEffect(() => {
+    if (heroImages.length <= 1) return;
+    const id = setInterval(() => setHeroIndex((i) => (i + 1) % heroImages.length), 5000);
+    return () => clearInterval(id);
+  }, [heroImages.length]);
   const [lang, setLang] = useLang();
 
   useEffect(() => {
@@ -76,35 +84,62 @@ export default function HomePage() {
       </header>
 
       {/* ---------- hero ---------- */}
-      <section
-        className="relative flex min-h-[420px] w-full items-center justify-center px-5 py-16 text-center sm:min-h-[520px]"
-        style={
-          SHOP_HERO_IMAGE_URL
-            ? { backgroundImage: `linear-gradient(rgba(38,38,38,0.5), rgba(38,38,38,0.6)), url(${SHOP_HERO_IMAGE_URL})`, backgroundSize: "cover", backgroundPosition: "center" }
-            : { background: PAPER }
-        }
-      >
-        <div className="mx-auto max-w-2xl">
+      <section className="relative flex min-h-[420px] w-full items-center justify-center overflow-hidden px-5 py-16 text-center sm:min-h-[520px]">
+        {heroImages.length > 0 ? (
+          <>
+            {heroImages.map((img, i) => (
+              <div
+                key={img + i}
+                className="absolute inset-0 transition-opacity duration-1000 ease-in-out"
+                style={{
+                  backgroundImage: `url(${img})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                  opacity: i === heroIndex ? 1 : 0,
+                }}
+              />
+            ))}
+            <div className="absolute inset-0" style={{ background: "linear-gradient(rgba(38,38,38,0.5), rgba(38,38,38,0.6))" }} />
+          </>
+        ) : (
+          <div className="absolute inset-0" style={{ background: PAPER }} />
+        )}
+
+        <div className="relative z-10 mx-auto max-w-2xl">
           <h1
             className="text-4xl font-extrabold leading-tight sm:text-5xl md:text-6xl"
-            style={{ color: SHOP_HERO_IMAGE_URL ? "white" : INK }}
+            style={{ color: heroImages.length > 0 ? "white" : INK }}
           >
             {SHOP_TAGLINE}
           </h1>
-          <p className="mx-auto mt-5 max-w-xl text-sm sm:text-base" style={{ color: SHOP_HERO_IMAGE_URL ? "rgba(255,255,255,0.9)" : "#78716c" }}>{SHOP_ABOUT}</p>
+          <p className="mx-auto mt-5 max-w-xl text-sm sm:text-base" style={{ color: heroImages.length > 0 ? "rgba(255,255,255,0.9)" : "#78716c" }}>{SHOP_ABOUT}</p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <a href="/book" className="rounded-lg px-6 py-3.5 text-sm font-bold text-white" style={{ background: RED }}>
               {t(lang, "ctaSeeAvailable")}
             </a>
-            <a href="#fleet" className="rounded-lg border px-6 py-3.5 text-sm font-bold" style={SHOP_HERO_IMAGE_URL ? { borderColor: "rgba(255,255,255,0.5)", color: "white" } : { borderColor: "rgba(0,0,0,0.1)", color: INK, background: "white" }}>
+            <a href="#fleet" className="rounded-lg border px-6 py-3.5 text-sm font-bold" style={heroImages.length > 0 ? { borderColor: "rgba(255,255,255,0.5)", color: "white" } : { borderColor: "rgba(0,0,0,0.1)", color: INK, background: "white" }}>
               {t(lang, "ctaSeeAll")}
             </a>
           </div>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-6 text-xs" style={{ color: SHOP_HERO_IMAGE_URL ? "rgba(255,255,255,0.85)" : "#78716c" }}>
-            <span className="flex items-center gap-1.5"><ShieldCheck size={15} style={{ color: SHOP_HERO_IMAGE_URL ? "white" : RED }} /> {t(lang, "trustInspected")}</span>
-            <span className="flex items-center gap-1.5"><BadgeCheck size={15} style={{ color: SHOP_HERO_IMAGE_URL ? "white" : RED }} /> {t(lang, "trustPricing")}</span>
-            <span className="flex items-center gap-1.5"><Clock size={15} style={{ color: SHOP_HERO_IMAGE_URL ? "white" : RED }} /> {t(lang, "trustOnline")}</span>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-6 text-xs" style={{ color: heroImages.length > 0 ? "rgba(255,255,255,0.85)" : "#78716c" }}>
+            <span className="flex items-center gap-1.5"><ShieldCheck size={15} style={{ color: heroImages.length > 0 ? "white" : RED }} /> {t(lang, "trustInspected")}</span>
+            <span className="flex items-center gap-1.5"><BadgeCheck size={15} style={{ color: heroImages.length > 0 ? "white" : RED }} /> {t(lang, "trustPricing")}</span>
+            <span className="flex items-center gap-1.5"><Clock size={15} style={{ color: heroImages.length > 0 ? "white" : RED }} /> {t(lang, "trustOnline")}</span>
           </div>
+
+          {heroImages.length > 1 && (
+            <div className="mt-6 flex items-center justify-center gap-1.5">
+              {heroImages.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setHeroIndex(i)}
+                  aria-label={`สไลด์ที่ ${i + 1}`}
+                  className="h-1.5 rounded-full transition-all"
+                  style={{ width: i === heroIndex ? 20 : 8, background: i === heroIndex ? "white" : "rgba(255,255,255,0.5)" }}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -126,7 +161,7 @@ export default function HomePage() {
                 <div className="p-4">
                   <Plate plate={c.plate} province={c.province} />
                   <p className="mt-3 text-sm font-bold" style={{ color: INK }}>{c.brand} {c.model}</p>
-                  <p className="text-xs text-stone-500">{c.type}</p>
+                  <p className="text-xs text-stone-500">{c.type} · {c.seats || 5} ที่นั่ง · {c.transmission || "อัตโนมัติ"}</p>
                   <div className="mt-2 flex items-center justify-between">
                     <div className="flex items-baseline gap-1">
                       <span className="text-lg font-bold" style={{ color: RED, fontFamily: "'IBM Plex Mono', monospace" }}>{money(c.price_per_day)}</span>
