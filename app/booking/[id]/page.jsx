@@ -144,17 +144,29 @@ export default function BookingReceiptPage() {
                 <span style={{ color: INK }}>ยอดรวมค่าเช่า</span>
                 <span style={{ color: RED, fontFamily: "'IBM Plex Mono', monospace" }}>{money(booking.total)}</span>
               </div>
+              {booking.deposit_amount > 0 && (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span className="text-stone-500">ค่ามัดจำที่จ่ายแล้ว</span>
+                    <span style={{ color: INK }}>− {money(booking.deposit_amount)}</span>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-dashed border-black/10 pt-1.5 font-semibold">
+                    <span style={{ color: INK }}>ยอดที่ต้องจ่ายวันรับรถ</span>
+                    <span style={{ color: RED, fontFamily: "'IBM Plex Mono', monospace" }}>{money(Math.max(0, booking.total - booking.deposit_amount))}</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
-          {booking.deposit_amount > 0 && (
+          {booking.damage_insurance_amount > 0 && (
             <div className="mt-3 rounded-lg border border-dashed p-3" style={{ borderColor: "#D9C48A", background: "#FBF6E9" }}>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold" style={{ color: "#8A6D1F" }}>ค่ามัดจำ / ประกันความเสียหาย</span>
-                <span className="text-sm font-bold" style={{ color: "#8A6D1F", fontFamily: "'IBM Plex Mono', monospace" }}>{money(booking.deposit_amount)}</span>
+                <span className="text-xs font-semibold" style={{ color: "#8A6D1F" }}>ค่าประกันความเสียหาย</span>
+                <span className="text-sm font-bold" style={{ color: "#8A6D1F", fontFamily: "'IBM Plex Mono', monospace" }}>{money(booking.damage_insurance_amount)}</span>
               </div>
               <p className="mt-1 text-[10px] text-stone-500">
-                ชำระล่วงหน้าเป็นเงินมัดจำ — จะ<span className="font-semibold">ได้รับคืนเต็มจำนวนในวันคืนรถ</span> หากไม่พบความเสียหายเพิ่มเติมกับตัวรถ
+                เรียกเก็บ ณ วันรับรถ (แยกจากค่ามัดจำ) — จะ<span className="font-semibold">ได้รับคืนเต็มจำนวนในวันคืนรถ</span> หากไม่พบความเสียหายเพิ่มเติมกับตัวรถ
               </p>
             </div>
           )}
