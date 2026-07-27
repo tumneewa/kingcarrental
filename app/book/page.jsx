@@ -10,7 +10,7 @@ import { SHOP_PROMPTPAY_ID, SHOP_DEPOSIT_AMOUNT, SHOP_LOGO_URL, SHOP_ADDRESS } f
 import { t, useLang, localeFor } from "../../lib/i18n";
 import LangSwitcher from "../../components/LangSwitcher";
 import PhotoThumb from "../../components/PhotoThumb";
-import { Phone, User, Clock, MapPin, Loader2, CheckCircle2, Car as CarIcon, QrCode, Upload } from "lucide-react";
+import { Phone, User, Clock, MapPin, Loader2, CheckCircle2, Car as CarIcon, QrCode, Upload, Users, DoorClosed, Settings2, Briefcase } from "lucide-react";
 
 const INK = "#262626";
 const RED = "#C0392B";
@@ -369,7 +369,7 @@ function BookingContent() {
                   <div className="p-4">
                     <Plate plate={c.plate} province={c.province} />
                     <p className="mt-3 text-sm font-bold" style={{ color: INK }}>{c.brand} {c.model}</p>
-                    <p className="text-xs text-stone-500">{c.type}</p>
+                    <p className="text-xs text-stone-500">{c.type} · {c.seats || 5} {t(lang, "seatsUnit")} · {c.transmission || "อัตโนมัติ"}</p>
                     <div className="mt-2 flex items-baseline gap-1">
                       <span className="text-lg font-bold" style={{ color: RED, fontFamily: "'IBM Plex Mono', monospace" }}>{money(c.price_per_day)}</span>
                       <span className="text-xs text-stone-400">{t(lang, "perDay")}</span>
@@ -393,6 +393,41 @@ function BookingContent() {
                 <p className="text-xs text-stone-500">{money(selectedCar.price_per_day)} {t(lang, "perDay")}</p>
               </div>
             </div>
+
+            <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-lg border border-black/5 py-2" style={{ background: PAPER }}>
+                <Users size={16} className="mx-auto text-stone-400" />
+                <p className="mt-1 text-[11px] font-semibold" style={{ color: INK }}>{selectedCar.seats || 5} {t(lang, "seatsUnit")}</p>
+              </div>
+              <div className="rounded-lg border border-black/5 py-2" style={{ background: PAPER }}>
+                <DoorClosed size={16} className="mx-auto text-stone-400" />
+                <p className="mt-1 text-[11px] font-semibold" style={{ color: INK }}>{selectedCar.doors || 4} {t(lang, "doorsUnit")}</p>
+              </div>
+              <div className="rounded-lg border border-black/5 py-2" style={{ background: PAPER }}>
+                <Settings2 size={16} className="mx-auto text-stone-400" />
+                <p className="mt-1 text-[11px] font-semibold" style={{ color: INK }}>{selectedCar.transmission || "อัตโนมัติ"}</p>
+              </div>
+              {(selectedCar.luggage_large > 0 || selectedCar.luggage_small > 0) && (
+                <div className="col-span-3 rounded-lg border border-black/5 py-2" style={{ background: PAPER }}>
+                  <Briefcase size={16} className="mx-auto text-stone-400" />
+                  <p className="mt-1 text-[11px] font-semibold" style={{ color: INK }}>
+                    {selectedCar.luggage_large > 0 && `${t(lang, "luggageLarge")} ${selectedCar.luggage_large}`}
+                    {selectedCar.luggage_large > 0 && selectedCar.luggage_small > 0 && " · "}
+                    {selectedCar.luggage_small > 0 && `${t(lang, "luggageSmall")} ${selectedCar.luggage_small}`}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {Array.isArray(selectedCar.features) && selectedCar.features.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {selectedCar.features.map((f) => (
+                  <span key={f} className="rounded-full border border-black/10 bg-white px-2.5 py-1 text-[11px] text-stone-600">
+                    {f}
+                  </span>
+                ))}
+              </div>
+            )}
 
             {(selectedCar.price_3days > 0 || selectedCar.price_7days > 0 || selectedCar.price_monthly > 0) && (
               <div className="mt-3 rounded-lg border border-black/5 p-3" style={{ background: PAPER }}>
