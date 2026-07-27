@@ -70,6 +70,7 @@ function BookingContent() {
   const [bookingId, setBookingId] = useState(null);
   const [confirmedTotal, setConfirmedTotal] = useState(0);
   const [confirmedDeposit, setConfirmedDeposit] = useState(0);
+  const [confirmedInsurance, setConfirmedInsurance] = useState(0);
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [paymentNotified, setPaymentNotified] = useState(false);
   const [notifying, setNotifying] = useState(false);
@@ -90,7 +91,8 @@ function BookingContent() {
   }, [preselectCarId]);
 
   const selectedCar = cars.find((c) => c.id === selectedCarId);
-  const depositAmount = selectedCar?.deposit_amount > 0 ? selectedCar.deposit_amount : SHOP_DEPOSIT_AMOUNT;
+  const depositAmount = SHOP_DEPOSIT_AMOUNT; // ค่ามัดจำจ่ายผ่าน QR ตอนจอง — คงที่เสมอ ไม่ว่ารถคันไหน/กี่วัน
+  const damageInsuranceAmount = selectedCar?.deposit_amount > 0 ? Number(selectedCar.deposit_amount) : 0; // ค่าประกันความเสียหาย แยกต่างหาก เรียกเก็บวันรับรถ
 
   // สร้าง QR พร้อมเพย์ใหม่ทุกครั้งที่เปลี่ยนรถที่เลือก เพราะแต่ละคันอาจตั้งค่ามัดจำไม่เท่ากัน
   useEffect(() => {
@@ -104,7 +106,7 @@ function BookingContent() {
         console.error("สร้างคิวอาร์โค้ดไม่สำเร็จ", qrErr);
       }
     })();
-  }, [depositAmount]);
+  }, []);
 
   const todayStr = todayISO();
 
@@ -166,6 +168,7 @@ function BookingContent() {
       p_rental_subtotal: rentalCalc.total - rentalCalc.surcharge,
       p_overtime_surcharge: rentalCalc.surcharge,
       p_deposit_amount: depositAmount,
+      p_damage_insurance_amount: damageInsuranceAmount,
     });
     if (error) {
       setSubmitting(false);
@@ -176,6 +179,7 @@ function BookingContent() {
     setBookingId(newBookingId);
     setConfirmedTotal(totalSel);
     setConfirmedDeposit(depositAmount);
+    setConfirmedInsurance(damageInsuranceAmount);
 
     // อัปโหลดสลิปและแจ้งชำระเงินทันที เพราะบังคับแนบมาตั้งแต่ตอนกดจองแล้ว
     if (slipFile) {
@@ -240,7 +244,26 @@ function BookingContent() {
               </p>
               <img src={qrDataUrl} alt="พร้อมเพย์ QR" className="mx-auto mt-3 h-48 w-48" />
               <p className="mt-2 text-lg font-bold" style={{ color: RED, fontFamily: "'IBM Plex Mono', monospace" }}>{money(confirmedDeposit)}</p>
-              <p className="text-[11px] text-stone-400">{t(lang, "depositNote", { total: money(confirmedTotal) })}</p>
+              <p className="text-[11px] text-stone-400">{t(lang, "depositNote")}</p>
+
+              <div className="mt-2 rounded-lg bg-white/60 px-2.5 py-2 text-left text-[11px]">
+                <div className="flex justify-between text-stone-500">
+                  <span>{t(lang, "estimatedTotal")}</span>
+                  <span style={{ color: INK }}>{money(confirmedTotal)}</span>
+                </div>
+                <div className="flex justify-between text-stone-500">
+                  <span>{t(lang, "depositPaidNow")}</span>
+                  <span style={{ color: INK }}>− {money(confirmedDeposit)}</span>
+                </div>
+                <div className="mt-1 flex justify-between border-t border-dashed border-black/10 pt-1 font-semibold">
+                  <span style={{ color: INK }}>{t(lang, "dueAtPickup")}</span>
+                  <span style={{ color: RED }}>{money(Math.max(0, confirmedTotal - confirmedDeposit))}</span>
+                </div>
+              </div>
+
+              {confirmedInsurance > 0 && (
+                <p className="mt-2 text-[10px] text-stone-400">{t(lang, "damageInsuranceNote", { amount: money(confirmedInsurance) })}</p>
+              )}
 
               {paymentNotified ? (
                 <p className="mt-3 text-xs font-semibold" style={{ color: RED }}>{t(lang, "paymentNotifiedDone")}</p>
@@ -487,7 +510,28 @@ function BookingContent() {
                           </div>
                         )}
                         <p className="mt-1.5 text-base font-bold" style={{ color: RED, fontFamily: "'IBM Plex Mono', monospace" }}>{money(depositAmount)}</p>
-                        <p className="text-[11px] text-stone-400">{t(lang, "depositNote", { total: money(totalSel) })}</p>
+                        <p className="text-[11px] text-stone-400">{t(lang, "depositNote")}</p>
+
+                        <div className="mt-2 rounded-lg bg-white/60 px-2.5 py-2 text-left text-[11px]">
+                          <div className="flex justify-between text-stone-500">
+                            <span>{t(lang, "estimatedTotal")}</span>
+                            <span style={{ color: INK }}>{money(totalSel)}</span>
+                          </div>
+                          <div className="flex justify-between text-stone-500">
+                            <span>{t(lang, "depositPaidNow")}</span>
+                            <span style={{ color: INK }}>− {money(depositAmount)}</span>
+                          </div>
+                          <div className="mt-1 flex justify-between border-t border-dashed border-black/10 pt-1 font-semibold">
+                            <span style={{ color: INK }}>{t(lang, "dueAtPickup")}</span>
+                            <span style={{ color: RED }}>{money(Math.max(0, totalSel - depositAmount))}</span>
+                          </div>
+                        </div>
+
+                        {damageInsuranceAmount > 0 && (
+                          <p className="mt-2 text-[10px] text-stone-400">
+                            {t(lang, "damageInsuranceNote", { amount: money(damageInsuranceAmount) })}
+                          </p>
+                        )}
 
                         <label className="mt-3 flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-black/15 bg-white px-3 py-2.5 text-xs font-semibold" style={{ color: INK }}>
                           <Upload size={13} />
