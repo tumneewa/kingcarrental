@@ -251,13 +251,19 @@ function BookingContent() {
                   <span>{t(lang, "estimatedTotal")}</span>
                   <span style={{ color: INK }}>{money(confirmedTotal)}</span>
                 </div>
+                {confirmedInsurance > 0 && (
+                  <div className="flex justify-between text-stone-500">
+                    <span>{t(lang, "damageInsuranceLabel")}</span>
+                    <span style={{ color: INK }}>+ {money(confirmedInsurance)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-stone-500">
                   <span>{t(lang, "depositPaidNow")}</span>
                   <span style={{ color: INK }}>− {money(confirmedDeposit)}</span>
                 </div>
                 <div className="mt-1 flex justify-between border-t border-dashed border-black/10 pt-1 font-semibold">
                   <span style={{ color: INK }}>{t(lang, "dueAtPickup")}</span>
-                  <span style={{ color: RED }}>{money(Math.max(0, confirmedTotal - confirmedDeposit))}</span>
+                  <span style={{ color: RED }}>{money(Math.max(0, confirmedTotal + confirmedInsurance - confirmedDeposit))}</span>
                 </div>
               </div>
 
@@ -517,13 +523,19 @@ function BookingContent() {
                             <span>{t(lang, "estimatedTotal")}</span>
                             <span style={{ color: INK }}>{money(totalSel)}</span>
                           </div>
+                          {damageInsuranceAmount > 0 && (
+                            <div className="flex justify-between text-stone-500">
+                              <span>{t(lang, "damageInsuranceLabel")}</span>
+                              <span style={{ color: INK }}>+ {money(damageInsuranceAmount)}</span>
+                            </div>
+                          )}
                           <div className="flex justify-between text-stone-500">
                             <span>{t(lang, "depositPaidNow")}</span>
                             <span style={{ color: INK }}>− {money(depositAmount)}</span>
                           </div>
                           <div className="mt-1 flex justify-between border-t border-dashed border-black/10 pt-1 font-semibold">
                             <span style={{ color: INK }}>{t(lang, "dueAtPickup")}</span>
-                            <span style={{ color: RED }}>{money(Math.max(0, totalSel - depositAmount))}</span>
+                            <span style={{ color: RED }}>{money(Math.max(0, totalSel + damageInsuranceAmount - depositAmount))}</span>
                           </div>
                         </div>
 
