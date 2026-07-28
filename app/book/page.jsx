@@ -9,8 +9,10 @@ import { todayISO, daysBetween, money, formatDate, formatTime, shiftTime, calcRe
 import { SHOP_PROMPTPAY_ID, SHOP_DEPOSIT_AMOUNT, SHOP_LOGO_URL, SHOP_ADDRESS } from "../../lib/shopConfig";
 import { t, useLang, localeFor } from "../../lib/i18n";
 import LangSwitcher from "../../components/LangSwitcher";
+import ContactFloating from "../../components/ContactFloating";
+import { subscribeToPush } from "../../lib/pushClient";
 import PhotoThumb from "../../components/PhotoThumb";
-import { Phone, User, Clock, MapPin, Loader2, CheckCircle2, Car as CarIcon, QrCode, Upload, Users, DoorClosed, Settings2, Briefcase } from "lucide-react";
+import { Phone, User, Clock, MapPin, Loader2, CheckCircle2, Car as CarIcon, QrCode, Upload, Users, DoorClosed, Settings2, Briefcase, Bell } from "lucide-react";
 
 const INK = "#262626";
 const RED = "#C0392B";
@@ -64,6 +66,7 @@ function BookingContent() {
   const [phone, setPhone] = useState("");
   const [pickupTime, setPickupTime] = useState("10:00");
   const [hasLicense, setHasLicense] = useState(false);
+  const [pushStatus, setPushStatus] = useState("");
   const [pickupLocation, setPickupLocation] = useState("");
   const [returnLocation, setReturnLocation] = useState("");
   const [returnTime, setReturnTime] = useState("10:00");
@@ -189,6 +192,17 @@ function BookingContent() {
     setConfirmedTotal(totalSel);
     setConfirmedDeposit(depositAmount);
     setConfirmedInsurance(damageInsuranceAmount);
+
+    // แจ้งเตือนพนักงานทันทีว่ามีคำขอจองใหม่ (ไม่รอผลลัพธ์ ไม่ให้กระทบขั้นตอนจองของลูกค้า)
+    fetch("/api/push/notify-staff", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: "มีคำขอจองใหม่!",
+        body: `${name.trim()} จองรถ ${selectedCar.brand} ${selectedCar.model}`,
+        url: `/booking/${newBookingId}`,
+      }),
+    }).catch(() => {});
 
     // อัปโหลดสลิปและแจ้งชำระเงินทันที เพราะบังคับแนบมาตั้งแต่ตอนกดจองแล้ว
     if (slipFile) {
@@ -318,8 +332,25 @@ function BookingContent() {
             </a>
           )}
 
+          {bookingId && (
+            <button
+              onClick={async () => {
+                setPushStatus(t(lang, "enablingReminder"));
+                try {
+                  await subscribeToPush("customer", phone.trim());
+                  setPushStatus(t(lang, "reminderEnabled"));
+                } catch (err) {
+                  setPushStatus(err.message);
+                }
+              }}
+              className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-black/10 bg-white px-4 py-2.5 text-xs font-semibold text-stone-500"
+            >
+              <Bell size={13} /> {pushStatus || t(lang, "enableReminder")}
+            </button>
+          )}
+
           <button
-            onClick={() => { setDone(false); setSelectedCarId(null); setName(""); setPhone(""); setRangeStart(null); setRangeEnd(null); setSlipFile(null); setPaymentNotified(false); setBookingId(null); setSubmitError(""); setHasLicense(false); setPickupLocation(""); setReturnLocation(""); }}
+            onClick={() => { setDone(false); setSelectedCarId(null); setName(""); setPhone(""); setRangeStart(null); setRangeEnd(null); setSlipFile(null); setPaymentNotified(false); setBookingId(null); setSubmitError(""); setHasLicense(false); setPickupLocation(""); setReturnLocation(""); setPushStatus(""); }}
             className="mt-2 rounded-lg px-4 py-2 text-xs font-semibold text-white"
             style={{ background: RED }}
           >
@@ -670,6 +701,7 @@ function BookingContent() {
           </div>
         )}
       </main>
+      <ContactFloating />
     </div>
   );
 }
