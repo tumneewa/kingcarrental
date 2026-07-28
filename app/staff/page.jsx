@@ -6,6 +6,7 @@ import { supabase } from "../../lib/supabaseClient";
 import { todayISO, daysBetween, money, formatDate, formatTime, dateISO, buildMonthGrid, hasTimeConflict, calcRentalTotalWithTime } from "../../lib/utils";
 import { SHOP_LOGO_URL, SHOP_NAME, SHOP_DEPOSIT_AMOUNT, SHOP_ADDRESS } from "../../lib/shopConfig";
 import PhotoThumb, { carPhotos } from "../../components/PhotoThumb";
+import { subscribeToPush } from "../../lib/pushClient";
 import {
   LayoutDashboard,
   Car,
@@ -31,6 +32,7 @@ import {
   Copy,
   ExternalLink,
   MapPin,
+  Bell,
 } from "lucide-react";
 
 // ---------- palette / tokens ----------
@@ -424,6 +426,7 @@ export default function Dashboard() {
   // ---- add member ----
   const [showAddMember, setShowAddMember] = useState(false);
   const [copiedBookingId, setCopiedBookingId] = useState(null);
+  const [pushStatus, setPushStatus] = useState("");
 
   const copyReceiptLink = async (bookingId) => {
     const url = `${window.location.origin}/booking/${bookingId}`;
@@ -685,6 +688,21 @@ export default function Dashboard() {
         <NavItem icon={CalendarDays} label="สรุปรับ-คืนรถ" active={tab === "schedule"} onClick={() => setTab("schedule")} count={todaySummaryCount} />
         <NavItem icon={ClipboardList} label="ประวัติการจอง" active={tab === "bookings"} onClick={() => setTab("bookings")} count={stats.activeBookings.length + stats.pendingBookings.length} />
         <NavItem icon={Users} label="สมาชิก" active={tab === "members"} onClick={() => setTab("members")} count={members.length} />
+
+        <button
+          onClick={async () => {
+            setPushStatus("กำลังเปิด...");
+            try {
+              await subscribeToPush("staff");
+              setPushStatus("เปิดแจ้งเตือนแล้ว ✓");
+            } catch (err) {
+              setPushStatus(err.message);
+            }
+          }}
+          className="mt-1 flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-white/70 hover:bg-white/5"
+        >
+          <Bell size={14} /> {pushStatus || "เปิดการแจ้งเตือน"}
+        </button>
 
         <div className="mt-auto rounded-lg px-3 py-3" style={{ background: "rgba(255,255,255,0.06)" }}>
           <p className="text-[11px] text-white/50">รายได้สะสม</p>
