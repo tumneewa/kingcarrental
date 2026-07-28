@@ -6,6 +6,7 @@ import { money } from "../lib/utils";
 import { SHOP_NAME, SHOP_TAGLINE, SHOP_ABOUT, SHOP_ADDRESS, SHOP_PHONE, SHOP_HOURS, SHOP_LOGO_URL, SHOP_HERO_IMAGE_URL, SHOP_HERO_IMAGES } from "../lib/shopConfig";
 import { t, useLang } from "../lib/i18n";
 import LangSwitcher from "../components/LangSwitcher";
+import ContactFloating from "../components/ContactFloating";
 import PhotoThumb from "../components/PhotoThumb";
 import { MapPin, Phone as PhoneIcon, Clock, Car as CarIcon, ShieldCheck, BadgeCheck } from "lucide-react";
 
@@ -203,6 +204,8 @@ export default function HomePage() {
       <footer className="border-t border-black/5 px-5 py-6 text-center text-xs text-stone-400">
         © {new Date().getFullYear()} {SHOP_NAME}
       </footer>
+
+      <ContactFloating />
     </div>
   );
 }
