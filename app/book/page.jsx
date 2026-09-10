@@ -1,707 +1,129 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
-import generatePromptPayPayload from "promptpay-qr";
-import QRCode from "qrcode";
-import { supabase } from "../../lib/supabaseClient";
-import { todayISO, daysBetween, money, formatDate, formatTime, shiftTime, calcRentalTotalWithTime, dateISO, buildMonthGrid } from "../../lib/utils";
-import { SHOP_PROMPTPAY_ID, SHOP_DEPOSIT_AMOUNT, SHOP_LOGO_URL, SHOP_ADDRESS } from "../../lib/shopConfig";
-import { t, useLang, localeFor } from "../../lib/i18n";
-import LangSwitcher from "../../components/LangSwitcher";
-import ContactFloating from "../../components/ContactFloating";
-import { subscribeToPush } from "../../lib/pushClient";
-import PhotoThumb from "../../components/PhotoThumb";
-import { Phone, User, Clock, MapPin, Loader2, CheckCircle2, Car as CarIcon, QrCode, Upload, Users, DoorClosed, Settings2, Briefcase, Bell } from "lucide-react";
+import { useState, useEffect } from "react";
 
-const INK = "#262626";
-const RED = "#C0392B";
-const RED_DARK = "#8E2A1E";
-const PAPER = "#F2F2F0";
+// ============================================================
+// คำแปล 3 ภาษาสำหรับหน้าที่ลูกค้าเห็น (หน้าแรก + หน้าจอง)
+// หน้าพนักงาน (/staff) ไม่ใช้ไฟล์นี้ ยังคงเป็นภาษาไทยเสมอ
+// ============================================================
+export const translations = {
+  settingsBtn: { th: "ตั้งค่าร้าน", en: "Store Settings", zh: "店铺设置" },
+  staffLogin: { th: "พนักงานเข้าสู่ระบบ", en: "Staff Login", zh: "员工登录" },
+  bookNow: { th: "จองรถเลย", en: "Book Now", zh: "立即预订" },
+  ctaSeeAvailable: { th: "ดูรถที่ว่างตอนนี้", en: "See Available Cars", zh: "查看现有车辆" },
+  ctaSeeAll: { th: "ดูรถทั้งหมด", en: "View All Cars", zh: "查看所有车辆" },
+  trustInspected: { th: "รถตรวจสภาพสม่ำเสมอ", en: "Regularly inspected cars", zh: "车辆定期检查" },
+  trustPricing: { th: "ราคาชัดเจน ไม่มีค่าแอบแฝง", en: "Clear pricing, no hidden fees", zh: "价格透明，无隐藏费用" },
+  trustOnline: { th: "จองออนไลน์ได้ตลอด 24 ชม.", en: "Book online 24/7", zh: "全天24小时在线预订" },
+  fleetTitle: { th: "รถที่พร้อมให้เช่า", en: "Cars Available for Rent", zh: "可租车辆" },
+  fleetSub: { th: "เลือกรถที่ใช่ แล้วกดจองได้เลย", en: "Pick the right car and book instantly", zh: "选择合适的车辆，立即预订" },
+  noCarsSoon: { th: "ยังไม่มีรถเปิดให้จองในขณะนี้ — เร็วๆ นี้", en: "No cars available right now — coming soon", zh: "目前没有可预订的车辆——敬请期待" },
+  noCars: { th: "ยังไม่มีรถเปิดให้จองในขณะนี้", en: "No cars available for booking right now", zh: "目前没有可预订的车辆" },
+  perDay: { th: "/ วัน", en: "/ day", zh: "/天" },
+  bookThisCar: { th: "จองคันนี้", en: "Book This Car", zh: "预订这辆车" },
+  aboutUs: { th: "เกี่ยวกับเรา", en: "About Us", zh: "关于我们" },
+  contactShop: { th: "ติดต่อร้าน", en: "Contact Us", zh: "联系我们" },
+  backHome: { th: "‹ กลับหน้าแรก", en: "‹ Back to Home", zh: "‹ 返回首页" },
+  bookingPageTitle: { th: "จองรถเช่าออนไลน์", en: "Book a Rental Car Online", zh: "在线预订租车" },
+  bookingPageSub: { th: "เลือกรถ เลือกวัน แล้วส่งคำขอจองได้เลย", en: "Choose a car and dates, then submit your request", zh: "选择车辆和日期，即可提交预订请求" },
+  selectCarPrompt: { th: "เลือกรถที่ต้องการ", en: "Select a Car", zh: "选择车辆" },
+  backToSelect: { th: "‹ กลับไปเลือกรถ", en: "‹ Back to car list", zh: "‹ 返回选车" },
+  legendAvailable: { th: "ว่าง", en: "Available", zh: "空闲" },
+  legendBooked: { th: "ไม่ว่าง", en: "Booked", zh: "已预订" },
+  legendSelected: { th: "ที่เลือก", en: "Selected", zh: "已选择" },
+  daysUnit: { th: "วัน", en: "days", zh: "天" },
+  pickReturnDate: { th: "— เลือกวันคืนรถ", en: "— select return date", zh: "— 请选择还车日期" },
+  clear: { th: "ล้าง", en: "Clear", zh: "清除" },
+  namePlaceholder: { th: "ชื่อ-นามสกุล", en: "Full Name", zh: "姓名" },
+  phonePlaceholder: { th: "เบอร์โทร", en: "Phone Number", zh: "电话号码" },
+  estimatedTotal: { th: "ยอดประมาณ", en: "Estimated Total", zh: "预估总额" },
+  submitBooking: { th: "ส่งคำขอจอง", en: "Submit Booking Request", zh: "提交预订请求" },
+  submitting: { th: "กำลังส่งคำขอ...", en: "Submitting...", zh: "提交中..." },
+  notConfirmedNote: { th: "การจองนี้ยังไม่ยืนยัน — ทางร้านจะติดต่อกลับเพื่อยืนยันอีกครั้ง", en: "This booking is not yet confirmed — we'll contact you to confirm", zh: "此预订尚未确认——我们将联系您确认" },
+  pickupTimeLabel: { th: "เวลารับรถ", en: "Pickup time", zh: "取车时间" },
+  returnTimeLabel: { th: "เวลาคืนรถ", en: "Return time", zh: "还车时间" },
+  pickupLocationLabel: { th: "สถานที่รับรถ (เว้นว่าง = รับที่ร้าน)", en: "Pickup location (leave blank for shop)", zh: "取车地点（留空则为门店）" },
+  returnLocationLabel: { th: "สถานที่คืนรถ (เว้นว่าง = คืนที่ร้าน)", en: "Return location (leave blank for shop)", zh: "还车地点（留空则为门店）" },
+  sameDayHandoverNote: { th: "จุดแดง = วันนี้มีลูกค้าอีกคนรับ/คืนรถคันนี้ด้วย กรุณาเลือกเวลาให้ไม่ชนกัน", en: "Red dot = another customer picks up/returns this car the same day — please choose a non-overlapping time", zh: "红点=当天还有其他顾客取车/还车——请选择不冲突的时间" },
+  hintReturningToday: { th: "รถคันนี้มีคนคืนวันนี้เวลา {time} — กรุณาเลือกเวลารับหลังจากนั้นอย่างน้อย 1 ชม. (เผื่อเตรียมรถ)", en: "This car is being returned today at {time} — please pick a pickup time at least 1 hour after that", zh: "这辆车今天{time}会被归还——请选择至少晚1小时的取车时间" },
+  hintPickupSameDay: { th: "รถคันนี้มีคนมารับวันนี้เวลา {time} — กรุณาเลือกเวลาคืนก่อนหน้านั้นอย่างน้อย 1 ชม.", en: "This car is being picked up today at {time} — please choose a return time at least 1 hour before that", zh: "这辆车今天{time}会被取走——请选择至少提前1小时的还车时间" },
+  overtimeSurchargeNote: { th: "รวมค่าปรับคืนรถช้า {hours} ชม. ({amount})", en: "Includes late return surcharge for {hours} hrs ({amount})", zh: "含逾期还车附加费 {hours} 小时（{amount}）" },
+  priceTiersTitle: { th: "ราคาตามระยะเวลาเช่า", en: "Rates by rental duration", zh: "按租期计价" },
+  priceTier1: { th: "1-2 วัน", en: "1-2 days", zh: "1-2天" },
+  priceTier3: { th: "3-6 วัน", en: "3-6 days", zh: "3-6天" },
+  priceTier7: { th: "7-29 วัน", en: "7-29 days", zh: "7-29天" },
+  priceTierMonthly: { th: "รายเดือน (30 วัน+)", en: "Monthly (30+ days)", zh: "包月（30天以上）" },
+  viewReceipt: { th: "ดู / พิมพ์ใบจองนี้", en: "View / Print this receipt", zh: "查看/打印预订单" },
+  enableReminder: { th: "เปิดแจ้งเตือนก่อนวันรับรถ", en: "Enable pickup reminder", zh: "开启取车提醒" },
+  enablingReminder: { th: "กำลังเปิด...", en: "Enabling...", zh: "开启中..." },
+  reminderEnabled: { th: "เปิดแจ้งเตือนแล้ว ✓", en: "Reminder enabled ✓", zh: "提醒已开启 ✓" },
+  myBookings: { th: "ตรวจสอบการจอง", en: "My Bookings", zh: "查询预订" },
+  tooltipAvailableFrom: { th: "รับรถได้ตั้งแต่ {time} น. เป็นต้นไป", en: "Available for pickup from {time} onwards", zh: "{time}起可取车" },
+  tooltipReturnBy: { th: "ต้องคืนรถภายใน {time} น.", en: "Must be returned by {time}", zh: "须于{time}前还车" },
+  submitErrorGeneric: { th: "ขออภัย ช่วงวันที่นี้เพิ่งถูกจองไปหรือเกิดข้อผิดพลาด กรุณาเลือกวันใหม่", en: "Sorry, these dates were just booked or an error occurred. Please pick new dates.", zh: "抱歉，该日期刚被预订或发生错误，请重新选择日期" },
+  loading: { th: "กำลังโหลด...", en: "Loading...", zh: "加载中..." },
+  bookingSent: { th: "ส่งคำขอจองแล้ว", en: "Booking Request Sent", zh: "预订请求已发送" },
+  bookingSentSub: { th: "ทางร้านจะติดต่อกลับเพื่อยืนยันการจองเร็วๆ นี้", en: "We'll contact you shortly to confirm your booking", zh: "我们将尽快与您联系确认预订" },
+  scanPay: { th: "สแกนจ่ายมัดจำผ่านพร้อมเพย์", en: "Scan to pay deposit (Thai PromptPay QR)", zh: "扫码支付定金（泰国 PromptPay 二维码）" },
+  depositNote: { th: "ค่ามัดจำจองล่วงหน้า (เท่ากันทุกคัน/ทุกจำนวนวัน)", en: "Advance booking deposit (same for every car and duration)", zh: "预订定金（所有车型/租期统一金额）" },
+  depositLabel: { th: "ค่ามัดจำ", en: "Deposit", zh: "押金" },
+  payAtShopNote: { th: "ชำระเงินทั้งหมดเป็นเงินสดที่ร้านในวันรับรถ ไม่ต้องโอนหรือสแกน QR ล่วงหน้า", en: "Pay the full amount in cash at the shop on pickup day — no advance transfer or QR scan needed", zh: "取车当天到店支付全部费用，无需提前转账或扫码" },
+  depositPaidNow: { th: "ค่ามัดจำที่จ่ายแล้ว", en: "Deposit paid now", zh: "已支付定金" },
+  dueAtPickup: { th: "ยอดที่ต้องจ่ายวันรับรถ", en: "Amount due at pickup", zh: "取车时需支付" },
+  damageInsuranceLabel: { th: "ค่าประกันความเสียหาย", en: "Damage insurance", zh: "损坏险" },
+  seatsUnit: { th: "ที่นั่ง", en: "seats", zh: "座位" },
+  doorsUnit: { th: "ประตู", en: "doors", zh: "车门" },
+  luggageLarge: { th: "กระเป๋าใหญ่", en: "Large bags", zh: "大件行李" },
+  luggageSmall: { th: "กระเป๋าเล็ก", en: "Small bags", zh: "小件行李" },
+  licenseConfirmLabel: { th: "ฉันมีใบขับขี่รถยนต์ที่ยังไม่หมดอายุ และยินยอมแสดงใบขับขี่ตัวจริงในวันรับรถ", en: "I have a valid driver's license and agree to present it at pickup", zh: "我持有有效驾照，并同意在取车时出示" },
+  licenseRequiredHint: { th: "กรุณาติ๊กยืนยันว่าคุณมีใบขับขี่ก่อนส่งคำขอจอง", en: "Please confirm you have a driver's license before submitting", zh: "请先确认您持有驾照后再提交预订" },
+  damageInsuranceNote: { th: "* รถคันนี้มีค่าประกันความเสียหาย {amount} เรียกเก็บ ณ วันรับรถ และจะได้รับคืนเต็มจำนวนในวันคืนรถ หากไม่พบความเสียหายเพิ่มเติมกับตัวรถ", en: "* This car has a damage insurance of {amount}, collected at pickup and fully refunded at return if no additional damage is found", zh: "* 此车需缴纳损坏险 {amount}，取车时收取，还车时如无额外损坏将全额退还" },
+  paymentNotifiedDone: { th: "แจ้งชำระเงินแล้ว — รอพนักงานตรวจสอบ", en: "Payment reported — awaiting staff verification", zh: "已提交付款——等待工作人员核实" },
+  attachSlip: { th: "แนบรูปสลิปโอนเงิน (จำเป็น)", en: "Attach transfer slip (required)", zh: "上传转账单（必填）" },
+  slipRequiredHint: { th: "กรุณาแนบรูปสลิปโอนเงินก่อน จึงจะกดแจ้งชำระเงินได้", en: "Please attach the transfer slip before you can confirm payment", zh: "请先上传转账单后才能提交付款确认" },
+  uploadingSlip: { th: "กำลังอัปโหลดสลิป...", en: "Uploading slip...", zh: "正在上传转账单..." },
+  notifying: { th: "กำลังแจ้ง...", en: "Sending...", zh: "发送中..." },
+  notifyPayment: { th: "แจ้งว่าชำระเงินแล้ว", en: "I've Paid", zh: "我已付款" },
+  afterPayHint: { th: "หลังโอนเงิน กรุณาแนบรูปสลิป แล้วกดปุ่มด้านบนเพื่อแจ้งให้ร้านทราบ พนักงานจะตรวจสอบและยืนยันอีกครั้ง", en: "After transferring, please attach the slip and press the button above to notify us. Staff will verify and confirm.", zh: "转账后，请上传转账单并点击上方按钮通知我们，工作人员将核实并确认" },
+  bookAnotherCar: { th: "จองรถคันอื่นเพิ่ม", en: "Book Another Car", zh: "预订其他车辆" },
+  weekdays: { th: ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"], en: ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"], zh: ["日", "一", "二", "三", "四", "五", "六"] },
+};
 
-function Plate({ plate, province }) {
-  return (
-    <div
-      className="relative inline-flex flex-col items-center rounded-[3px] px-3 py-1.5 select-none"
-      style={{
-        background: `linear-gradient(180deg, ${RED} 0%, ${RED_DARK} 100%)`,
-        border: "2px solid white",
-        boxShadow: "0 0 0 1px rgba(0,0,0,0.15)",
-        minWidth: 120,
-      }}
-    >
-      <span className="absolute -top-[7px] rounded-sm bg-white px-1 text-[7px] font-bold tracking-wide" style={{ color: INK }}>
-        รถเช่า
-      </span>
-      <span className="mt-1 font-semibold text-white" style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 14, letterSpacing: 1 }}>
-        {plate}
-      </span>
-      <span className="text-[9px] text-white/85">{province}</span>
-    </div>
-  );
-}
+export const t = (lang, key, vars) => {
+  const entry = translations[key];
+  let text = entry ? (entry[lang] ?? entry.th) : key;
+  if (vars && typeof text === "string") {
+    Object.entries(vars).forEach(([k, v]) => {
+      text = text.replace(`{${k}}`, v);
+    });
+  }
+  return text;
+};
 
-export default function PublicBookingPage() {
-  return (
-    <Suspense fallback={null}>
-      <BookingContent />
-    </Suspense>
-  );
-}
+const LOCALE_MAP = { th: "th-TH", en: "en-US", zh: "zh-CN" };
+export const localeFor = (lang) => LOCALE_MAP[lang] || "th-TH";
 
-function BookingContent() {
-  const searchParams = useSearchParams();
-  const preselectCarId = searchParams.get("car");
-  const [lang, setLang] = useLang();
-
-  const [cars, setCars] = useState([]);
-  const [bookedRanges, setBookedRanges] = useState([]); // { car_id, start_date, end_date }
-  const [loaded, setLoaded] = useState(false);
-
-  const [selectedCarId, setSelectedCarId] = useState(null);
-  const [calendarMonth, setCalendarMonth] = useState(new Date());
-  const [rangeStart, setRangeStart] = useState(null);
-  const [rangeEnd, setRangeEnd] = useState(null);
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [pickupTime, setPickupTime] = useState("10:00");
-  const [hasLicense, setHasLicense] = useState(false);
-  const [pushStatus, setPushStatus] = useState("");
-  const [pickupLocation, setPickupLocation] = useState("");
-  const [returnLocation, setReturnLocation] = useState("");
-  const [returnTime, setReturnTime] = useState("10:00");
-  const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState("");
-  const [done, setDone] = useState(false);
-  const [bookingId, setBookingId] = useState(null);
-  const [confirmedTotal, setConfirmedTotal] = useState(0);
-  const [confirmedDeposit, setConfirmedDeposit] = useState(0);
-  const [confirmedInsurance, setConfirmedInsurance] = useState(0);
-  const [qrDataUrl, setQrDataUrl] = useState("");
-  const [paymentNotified, setPaymentNotified] = useState(false);
-  const [notifying, setNotifying] = useState(false);
-  const [slipFile, setSlipFile] = useState(null);
-  const [uploadingSlip, setUploadingSlip] = useState(false);
+// จำภาษาที่ลูกค้าเลือกไว้ (localStorage) เพื่อให้หน้าแรก ↔ หน้าจอง ใช้ภาษาเดียวกันต่อเนื่องกัน
+export function useLang() {
+  const [lang, setLangState] = useState("th");
 
   useEffect(() => {
-    (async () => {
-      const [carsRes, availRes] = await Promise.all([
-        supabase.from("cars").select("*").neq("status", "maintenance"),
-        supabase.from("public_bookings_availability").select("*"),
-      ]);
-      setCars(carsRes.data || []);
-      setBookedRanges(availRes.data || []);
-      setLoaded(true);
-      if (preselectCarId) setSelectedCarId(preselectCarId);
-    })();
-  }, [preselectCarId]);
-
-  const selectedCar = cars.find((c) => c.id === selectedCarId);
-  const depositAmount = SHOP_DEPOSIT_AMOUNT; // ค่ามัดจำจ่ายผ่าน QR ตอนจอง — คงที่เสมอ ไม่ว่ารถคันไหน/กี่วัน
-  const damageInsuranceAmount = selectedCar?.deposit_amount > 0 ? Number(selectedCar.deposit_amount) : 0; // ค่าประกันความเสียหาย แยกต่างหาก เรียกเก็บวันรับรถ
-
-  // สร้าง QR พร้อมเพย์ใหม่ทุกครั้งที่เปลี่ยนรถที่เลือก เพราะแต่ละคันอาจตั้งค่ามัดจำไม่เท่ากัน
-  useEffect(() => {
-    if (!SHOP_PROMPTPAY_ID) return;
-    (async () => {
-      try {
-        const payload = generatePromptPayPayload(SHOP_PROMPTPAY_ID, { amount: depositAmount });
-        const url = await QRCode.toDataURL(payload, { margin: 1, width: 240 });
-        setQrDataUrl(url);
-      } catch (qrErr) {
-        console.error("สร้างคิวอาร์โค้ดไม่สำเร็จ", qrErr);
-      }
-    })();
+    try {
+      const saved = window.localStorage.getItem("shop_lang");
+      if (saved === "th" || saved === "en" || saved === "zh") setLangState(saved);
+    } catch (e) {
+      // localStorage อาจใช้ไม่ได้ในบางเบราว์เซอร์ — ใช้ค่าเริ่มต้น "th" ต่อไปได้ปกติ
+    }
   }, []);
 
-  const todayStr = todayISO();
-
-  // เช็กเฉพาะวันที่อยู่ "ระหว่างกลาง" ของการจองอื่น (ไม่รวมวันรับ-วันคืนของเขา)
-  // เพื่อให้ลูกค้าใหม่จองวันรับรถ/คืนรถชนกับวันคืน/รับของคนอื่นได้ แล้วไปเช็กเวลาจริงตอนส่งคำขอ
-  const bookingOnDate = (carId, iso) =>
-    bookedRanges.find((b) => b.car_id === carId && iso > b.start_date && iso < b.end_date);
-
-  const isRangeConflict = (carId, startIso, endIso) => {
-    let d = new Date(startIso);
-    const endD = new Date(endIso);
-    while (d <= endD) {
-      if (bookingOnDate(carId, dateISO(d))) return true;
-      d.setDate(d.getDate() + 1);
+  const setLang = (next) => {
+    setLangState(next);
+    try {
+      window.localStorage.setItem("shop_lang", next);
+    } catch (e) {
+      // เก็บค่าไม่ได้ก็ไม่เป็นไร ยังใช้งานได้ในหน้านี้ตามปกติ
     }
-    return false;
   };
 
-  const openCar = (carId) => {
-    setSelectedCarId(carId);
-    setCalendarMonth(new Date());
-    setRangeStart(null);
-    setRangeEnd(null);
-    setSubmitError("");
-  };
-
-  const handleDayClick = (iso, disabled) => {
-    if (disabled) return;
-    if (!rangeStart || rangeEnd) { setRangeStart(iso); setRangeEnd(null); return; }
-    if (iso < rangeStart) { setRangeStart(iso); setRangeEnd(null); return; }
-    if (iso === rangeStart) return;
-    if (isRangeConflict(selectedCarId, rangeStart, iso)) { setRangeStart(iso); setRangeEnd(null); }
-    else setRangeEnd(iso);
-  };
-
-  const rentalCalc = selectedCar && rangeStart && rangeEnd
-    ? calcRentalTotalWithTime(selectedCar, rangeStart, pickupTime, rangeEnd, returnTime)
-    : { total: 0, days: 0, extraHours: 0, surcharge: 0 };
-  const nDaysSel = rentalCalc.days;
-  const totalSel = rentalCalc.total;
-
-  const submitRequest = async (e) => {
-    e.preventDefault();
-    if (!selectedCar || !rangeStart || !rangeEnd || !name.trim() || !phone.trim()) return;
-    if (!hasLicense) {
-      setSubmitError(t(lang, "licenseRequiredHint"));
-      return;
-    }
-    if (SHOP_PROMPTPAY_ID && !slipFile) {
-      setSubmitError(t(lang, "slipRequiredHint"));
-      return;
-    }
-    setSubmitting(true);
-    setSubmitError("");
-    const { data, error } = await supabase.rpc("request_booking", {
-      p_car_id: selectedCar.id,
-      p_customer_name: name.trim(),
-      p_customer_phone: phone.trim(),
-      p_start_date: rangeStart,
-      p_end_date: rangeEnd,
-      p_start_time: pickupTime,
-      p_end_time: returnTime,
-      p_rental_subtotal: rentalCalc.total - rentalCalc.surcharge,
-      p_overtime_surcharge: rentalCalc.surcharge,
-      p_deposit_amount: depositAmount,
-      p_damage_insurance_amount: damageInsuranceAmount,
-      p_pickup_location: pickupLocation.trim() || SHOP_ADDRESS,
-      p_return_location: returnLocation.trim() || SHOP_ADDRESS,
-    });
-    if (error) {
-      setSubmitting(false);
-      setSubmitError(t(lang, "submitErrorGeneric"));
-      return;
-    }
-    const newBookingId = data;
-    setBookingId(newBookingId);
-    setConfirmedTotal(totalSel);
-    setConfirmedDeposit(depositAmount);
-    setConfirmedInsurance(damageInsuranceAmount);
-
-    // แจ้งเตือนพนักงานทันทีว่ามีคำขอจองใหม่ (ไม่รอผลลัพธ์ ไม่ให้กระทบขั้นตอนจองของลูกค้า)
-    fetch("/api/push/notify-staff", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: "มีคำขอจองใหม่!",
-        body: `${name.trim()} จองรถ ${selectedCar.brand} ${selectedCar.model}`,
-        url: `/booking/${newBookingId}`,
-      }),
-    }).catch(() => {});
-
-    // อัปโหลดสลิปและแจ้งชำระเงินทันที เพราะบังคับแนบมาตั้งแต่ตอนกดจองแล้ว
-    if (slipFile) {
-      setUploadingSlip(true);
-      const ext = slipFile.name.split(".").pop();
-      const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from("payment-slips").upload(path, slipFile);
-      let slipUrl = null;
-      if (!uploadError) {
-        const { data: pub } = supabase.storage.from("payment-slips").getPublicUrl(path);
-        slipUrl = pub.publicUrl;
-      }
-      setUploadingSlip(false);
-      await supabase.rpc("notify_payment", { p_booking_id: newBookingId, p_slip_url: slipUrl });
-      setPaymentNotified(true);
-    }
-
-    setSubmitting(false);
-    setDone(true);
-  };
-
-  const notifyPayment = async () => {
-    if (!bookingId || !slipFile) return;
-    setNotifying(true);
-    let slipUrl = null;
-    if (slipFile) {
-      setUploadingSlip(true);
-      const ext = slipFile.name.split(".").pop();
-      const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from("payment-slips").upload(path, slipFile);
-      if (!uploadError) {
-        const { data: pub } = supabase.storage.from("payment-slips").getPublicUrl(path);
-        slipUrl = pub.publicUrl;
-      }
-      setUploadingSlip(false);
-    }
-    await supabase.rpc("notify_payment", { p_booking_id: bookingId, p_slip_url: slipUrl });
-    setNotifying(false);
-    setPaymentNotified(true);
-  };
-
-  if (!loaded) {
-    return (
-      <div className="paper-bg flex min-h-screen items-center justify-center">
-        <div className="flex items-center gap-2 text-sm text-stone-500"><Loader2 size={16} className="animate-spin" /> {t(lang, "loading")}</div>
-      </div>
-    );
-  }
-
-  if (done) {
-    return (
-      <div className="paper-bg flex min-h-screen items-center justify-center p-4">
-        <div className="w-full max-w-sm rounded-xl bg-white p-6 text-center shadow-sm">
-          <CheckCircle2 size={36} style={{ color: RED }} className="mx-auto" />
-          <p className="mt-3 text-sm font-bold" style={{ color: INK }}>{t(lang, "bookingSent")}</p>
-          <p className="mt-1 text-xs text-stone-500">{t(lang, "bookingSentSub")}</p>
-
-          {qrDataUrl && (
-            <div className="mt-5 rounded-lg border border-black/5 p-4" style={{ background: PAPER }}>
-              <p className="flex items-center justify-center gap-1.5 text-xs font-semibold" style={{ color: INK }}>
-                <QrCode size={14} /> {t(lang, "scanPay")}
-              </p>
-              <img src={qrDataUrl} alt="พร้อมเพย์ QR" className="mx-auto mt-3 h-48 w-48" />
-              <p className="mt-2 text-lg font-bold" style={{ color: RED, fontFamily: "'IBM Plex Mono', monospace" }}>{money(confirmedDeposit)}</p>
-              <p className="text-[11px] text-stone-400">{t(lang, "depositNote")}</p>
-
-              <div className="mt-2 rounded-lg bg-white/60 px-2.5 py-2 text-left text-[11px]">
-                <div className="flex justify-between text-stone-500">
-                  <span>{t(lang, "estimatedTotal")}</span>
-                  <span style={{ color: INK }}>{money(confirmedTotal)}</span>
-                </div>
-                {confirmedInsurance > 0 && (
-                  <div className="flex justify-between text-stone-500">
-                    <span>{t(lang, "damageInsuranceLabel")}</span>
-                    <span style={{ color: INK }}>+ {money(confirmedInsurance)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-stone-500">
-                  <span>{t(lang, "depositPaidNow")}</span>
-                  <span style={{ color: INK }}>− {money(confirmedDeposit)}</span>
-                </div>
-                <div className="mt-1 flex justify-between border-t border-dashed border-black/10 pt-1 font-semibold">
-                  <span style={{ color: INK }}>{t(lang, "dueAtPickup")}</span>
-                  <span style={{ color: RED }}>{money(Math.max(0, confirmedTotal + confirmedInsurance - confirmedDeposit))}</span>
-                </div>
-              </div>
-
-              {confirmedInsurance > 0 && (
-                <p className="mt-2 text-[10px] text-stone-400">{t(lang, "damageInsuranceNote", { amount: money(confirmedInsurance) })}</p>
-              )}
-
-              {paymentNotified ? (
-                <p className="mt-3 text-xs font-semibold" style={{ color: RED }}>{t(lang, "paymentNotifiedDone")}</p>
-              ) : (
-                <>
-                  <div className="mt-3">
-                    <label className="flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-black/15 bg-white px-3 py-2.5 text-xs font-semibold" style={{ color: INK }}>
-                      <Upload size={13} />
-                      {slipFile ? slipFile.name : t(lang, "attachSlip")}
-                      <input type="file" accept="image/*" className="hidden" onChange={(e) => setSlipFile(e.target.files?.[0] || null)} />
-                    </label>
-                  </div>
-                  <button
-                    onClick={notifyPayment}
-                    disabled={notifying || uploadingSlip || !slipFile}
-                    className="mt-2 w-full rounded-lg py-2.5 text-sm font-bold text-white disabled:opacity-50"
-                    style={{ background: RED }}
-                  >
-                    {uploadingSlip ? t(lang, "uploadingSlip") : notifying ? t(lang, "notifying") : t(lang, "notifyPayment")}
-                  </button>
-                  {!slipFile && <p className="mt-1.5 text-[10px] text-stone-400">{t(lang, "slipRequiredHint")}</p>}
-                </>
-              )}
-              <p className="mt-2 text-[10px] text-stone-400">{t(lang, "afterPayHint")}</p>
-            </div>
-          )}
-
-          {bookingId && (
-            <a
-              href={`/booking/${bookingId}`}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-4 block rounded-lg border border-black/10 bg-white px-4 py-2.5 text-xs font-semibold"
-              style={{ color: INK }}
-            >
-              {t(lang, "viewReceipt")}
-            </a>
-          )}
-
-          {bookingId && (
-            <button
-              onClick={async () => {
-                setPushStatus(t(lang, "enablingReminder"));
-                try {
-                  await subscribeToPush("customer", phone.trim());
-                  setPushStatus(t(lang, "reminderEnabled"));
-                } catch (err) {
-                  setPushStatus(err.message);
-                }
-              }}
-              className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-black/10 bg-white px-4 py-2.5 text-xs font-semibold text-stone-500"
-            >
-              <Bell size={13} /> {pushStatus || t(lang, "enableReminder")}
-            </button>
-          )}
-
-          <button
-            onClick={() => { setDone(false); setSelectedCarId(null); setName(""); setPhone(""); setRangeStart(null); setRangeEnd(null); setSlipFile(null); setPaymentNotified(false); setBookingId(null); setSubmitError(""); setHasLicense(false); setPickupLocation(""); setReturnLocation(""); setPushStatus(""); }}
-            className="mt-2 rounded-lg px-4 py-2 text-xs font-semibold text-white"
-            style={{ background: RED }}
-          >
-            {t(lang, "bookAnotherCar")}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  const grid = selectedCarId ? buildMonthGrid(calendarMonth) : [];
-
-  return (
-    <div className="paper-bg min-h-screen w-full" style={{ fontFamily: "'Noto Sans Thai', sans-serif" }}>
-      <header className="flex items-center justify-between px-5 py-4">
-        <div className="flex items-center gap-2">
-          {SHOP_LOGO_URL ? (
-            <img src={SHOP_LOGO_URL} alt="โลโก้ร้าน" className="h-9 w-auto rounded-[3px] object-contain" />
-          ) : (
-            <div
-              className="flex h-8 w-11 items-center justify-center rounded-[3px] border-2 border-white text-[9px] font-bold text-white"
-              style={{ background: `linear-gradient(180deg, ${RED} 0%, ${RED_DARK} 100%)`, fontFamily: "'IBM Plex Mono', monospace", boxShadow: "0 0 0 1px rgba(0,0,0,0.15)" }}
-            >
-              รถเช่า
-            </div>
-          )}
-          <div>
-            <p className="text-sm font-bold leading-tight" style={{ color: INK }}>{t(lang, "bookingPageTitle")}</p>
-            <p className="text-[11px] leading-tight text-stone-400">{t(lang, "bookingPageSub")}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <LangSwitcher lang={lang} setLang={setLang} />
-          <a href="/my-bookings" className="text-xs font-semibold text-stone-400 hover:text-stone-600">{t(lang, "myBookings")}</a>
-          <a href="/" className="text-xs font-semibold text-stone-400 hover:text-stone-600">{t(lang, "backHome")}</a>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-3xl px-4 pb-10">
-        {!selectedCarId ? (
-          <>
-            <p className="mb-3 text-sm font-bold" style={{ color: INK }}>{t(lang, "selectCarPrompt")}</p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {cars.map((c) => (
-                <button key={c.id} onClick={() => openCar(c.id)} className="overflow-hidden rounded-xl border border-black/5 bg-white text-left shadow-sm transition-shadow hover:shadow-md">
-                  <PhotoThumb car={c} className="aspect-square w-full" />
-                  <div className="p-4">
-                    <Plate plate={c.plate} province={c.province} />
-                    <p className="mt-3 text-sm font-bold" style={{ color: INK }}>{c.brand} {c.model}</p>
-                    <p className="text-xs text-stone-500">{c.type} · {c.seats || 5} {t(lang, "seatsUnit")} · {c.transmission || "อัตโนมัติ"}</p>
-                    <div className="mt-2 flex items-baseline gap-1">
-                      <span className="text-lg font-bold" style={{ color: RED, fontFamily: "'IBM Plex Mono', monospace" }}>{money(c.price_per_day)}</span>
-                      <span className="text-xs text-stone-400">{t(lang, "perDay")}</span>
-                    </div>
-                  </div>
-                </button>
-              ))}
-              {cars.length === 0 && <p className="text-sm text-stone-400">{t(lang, "noCars")}</p>}
-            </div>
-          </>
-        ) : (
-          <div className="overflow-hidden rounded-xl bg-white shadow-sm">
-            <PhotoThumb car={selectedCar} className="aspect-square w-full" />
-            <div className="p-5">
-            <button onClick={() => setSelectedCarId(null)} className="mb-3 text-xs font-semibold text-stone-400 hover:text-stone-600">{t(lang, "backToSelect")}</button>
-
-            <div className="flex items-center gap-3">
-              <Plate plate={selectedCar.plate} province={selectedCar.province} />
-              <div>
-                <p className="text-sm font-bold" style={{ color: INK }}>{selectedCar.brand} {selectedCar.model}</p>
-                <p className="text-xs text-stone-500">{money(selectedCar.price_per_day)} {t(lang, "perDay")}</p>
-              </div>
-            </div>
-
-            <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-lg border border-black/5 py-2" style={{ background: PAPER }}>
-                <Users size={16} className="mx-auto text-stone-400" />
-                <p className="mt-1 text-[11px] font-semibold" style={{ color: INK }}>{selectedCar.seats || 5} {t(lang, "seatsUnit")}</p>
-              </div>
-              <div className="rounded-lg border border-black/5 py-2" style={{ background: PAPER }}>
-                <DoorClosed size={16} className="mx-auto text-stone-400" />
-                <p className="mt-1 text-[11px] font-semibold" style={{ color: INK }}>{selectedCar.doors || 4} {t(lang, "doorsUnit")}</p>
-              </div>
-              <div className="rounded-lg border border-black/5 py-2" style={{ background: PAPER }}>
-                <Settings2 size={16} className="mx-auto text-stone-400" />
-                <p className="mt-1 text-[11px] font-semibold" style={{ color: INK }}>{selectedCar.transmission || "อัตโนมัติ"}</p>
-              </div>
-              {(selectedCar.luggage_large > 0 || selectedCar.luggage_small > 0) && (
-                <div className="col-span-3 rounded-lg border border-black/5 py-2" style={{ background: PAPER }}>
-                  <Briefcase size={16} className="mx-auto text-stone-400" />
-                  <p className="mt-1 text-[11px] font-semibold" style={{ color: INK }}>
-                    {selectedCar.luggage_large > 0 && `${t(lang, "luggageLarge")} ${selectedCar.luggage_large}`}
-                    {selectedCar.luggage_large > 0 && selectedCar.luggage_small > 0 && " · "}
-                    {selectedCar.luggage_small > 0 && `${t(lang, "luggageSmall")} ${selectedCar.luggage_small}`}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {Array.isArray(selectedCar.features) && selectedCar.features.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {selectedCar.features.map((f) => (
-                  <span key={f} className="rounded-full border border-black/10 bg-white px-2.5 py-1 text-[11px] text-stone-600">
-                    {f}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {(selectedCar.price_3days > 0 || selectedCar.price_7days > 0 || selectedCar.price_monthly > 0) && (
-              <div className="mt-3 rounded-lg border border-black/5 p-3" style={{ background: PAPER }}>
-                <p className="text-[11px] font-semibold" style={{ color: INK }}>{t(lang, "priceTiersTitle")}</p>
-                <div className="mt-1.5 space-y-1 text-[11px] text-stone-500">
-                  <div className="flex justify-between"><span>{t(lang, "priceTier1")}</span><span className="font-medium" style={{ color: INK }}>{money(selectedCar.price_per_day)}/{t(lang, "daysUnit")}</span></div>
-                  {selectedCar.price_3days > 0 && (
-                    <div className="flex justify-between"><span>{t(lang, "priceTier3")}</span><span className="font-medium" style={{ color: INK }}>{money(selectedCar.price_3days)}/{t(lang, "daysUnit")}</span></div>
-                  )}
-                  {selectedCar.price_7days > 0 && (
-                    <div className="flex justify-between"><span>{t(lang, "priceTier7")}</span><span className="font-medium" style={{ color: INK }}>{money(selectedCar.price_7days)}/{t(lang, "daysUnit")}</span></div>
-                  )}
-                  {selectedCar.price_monthly > 0 && (
-                    <div className="flex justify-between"><span>{t(lang, "priceTierMonthly")}</span><span className="font-medium" style={{ color: INK }}>{money(selectedCar.price_monthly)}</span></div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            <div className="mt-4 flex items-center justify-between">
-              <button onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))} className="rounded-lg px-2 py-1 text-sm text-stone-500 hover:bg-stone-100">‹</button>
-              <p className="text-sm font-bold" style={{ color: INK }}>{calendarMonth.toLocaleDateString(localeFor(lang), { month: "long", year: "numeric" })}</p>
-              <button onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))} className="rounded-lg px-2 py-1 text-sm text-stone-500 hover:bg-stone-100">›</button>
-            </div>
-
-            <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[10px] text-stone-400">
-              {t(lang, "weekdays").map((d, i) => <div key={i}>{d}</div>)}
-            </div>
-            <div className="mt-1 grid grid-cols-7 gap-1">
-              {grid.map((d, i) => {
-                if (!d) return <div key={i} />;
-                const iso = dateISO(d);
-                const isPast = iso < todayStr;
-                const booking = bookingOnDate(selectedCarId, iso);
-                const endingHere = bookedRanges.find((b) => b.car_id === selectedCarId && b.end_date === iso);
-                const startingHere = bookedRanges.find((b) => b.car_id === selectedCarId && b.start_date === iso);
-                const boundaryBooking = endingHere || startingHere;
-                const disabled = isPast || !!booking;
-                const inRange = rangeStart && (rangeEnd ? iso >= rangeStart && iso <= rangeEnd : iso === rangeStart);
-                let bg = "#EDEDEA", color = "#6B6B66";
-                if (isPast) { bg = "#F1F1EE"; color = "#B4B4AC"; }
-                else if (booking) { bg = "#FBE4E1"; color = "#C0392B"; }
-                if (inRange) { bg = RED; color = "white"; }
-                const tooltipParts = [];
-                if (endingHere && !disabled) tooltipParts.push(t(lang, "tooltipAvailableFrom", { time: shiftTime(endingHere.end_time, 1) }));
-                if (startingHere && !disabled) tooltipParts.push(t(lang, "tooltipReturnBy", { time: shiftTime(startingHere.start_time, -1) }));
-                return (
-                  <button key={i} type="button" onClick={() => handleDayClick(iso, disabled)} disabled={disabled}
-                    title={tooltipParts.length > 0 ? tooltipParts.join(" · ") : undefined}
-                    className="relative flex h-9 items-center justify-center rounded-md text-xs font-semibold disabled:cursor-not-allowed"
-                    style={{ background: bg, color, cursor: disabled ? "not-allowed" : "pointer" }}>
-                    {d.getDate()}
-                    {boundaryBooking && !disabled && (
-                      <span className="absolute bottom-0.5 h-1 w-1 rounded-full" style={{ background: inRange ? "white" : RED }} />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="mt-3 flex items-center gap-4 text-[11px] text-stone-500">
-              <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: "#EDEDEA" }} />{t(lang, "legendAvailable")}</span>
-              <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: "#FBE4E1" }} />{t(lang, "legendBooked")}</span>
-              <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: RED }} />{t(lang, "legendSelected")}</span>
-            </div>
-            <p className="mt-1.5 flex items-center gap-1 text-[10px] text-stone-400">
-              <span className="h-1.5 w-1.5 rounded-full" style={{ background: RED }} /> {t(lang, "sameDayHandoverNote")}
-            </p>
-
-            {rangeStart && (
-              <div className="mt-4 rounded-lg border border-black/5 p-3" style={{ background: PAPER }}>
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-semibold" style={{ color: INK }}>
-                    {rangeEnd ? `${formatDate(rangeStart)} – ${formatDate(rangeEnd)} (${nDaysSel} ${t(lang, "daysUnit")})` : `${formatDate(rangeStart)} ${t(lang, "pickReturnDate")}`}
-                  </p>
-                  <button onClick={() => { setRangeStart(null); setRangeEnd(null); }} className="text-[11px] text-stone-400 hover:text-stone-600">{t(lang, "clear")}</button>
-                </div>
-
-                {rangeEnd && (() => {
-                  // มีคันอื่นคืนรถวันเดียวกับที่เราจะรับรถไหม (ต้องรับหลังเวลานั้น + เผื่อ 1 ชม.)
-                  const returningToday = bookedRanges.find((b) => b.car_id === selectedCarId && b.end_date === rangeStart);
-                  // มีคันอื่นมารับรถวันเดียวกับที่เราจะคืนรถไหม (ต้องคืนก่อนเวลานั้น อย่างน้อย 1 ชม.)
-                  const pickingUpSameDay = bookedRanges.find((b) => b.car_id === selectedCarId && b.start_date === rangeEnd);
-                  if (!returningToday && !pickingUpSameDay) return null;
-                  return (
-                    <div className="mt-2 rounded-lg border border-dashed p-2.5 text-[11px]" style={{ borderColor: RED, color: RED, background: "#FBE4E1" }}>
-                      {returningToday && <p>{t(lang, "hintReturningToday", { time: formatTime(returningToday.end_time) })}</p>}
-                      {pickingUpSameDay && <p className={returningToday ? "mt-1" : ""}>{t(lang, "hintPickupSameDay", { time: formatTime(pickingUpSameDay.start_time) })}</p>}
-                    </div>
-                  );
-                })()}
-
-                {rangeEnd && (
-                  <form onSubmit={submitRequest} className="mt-3 space-y-2.5">
-                    <div className="flex gap-2">
-                      <div className="flex flex-1 items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2">
-                        <Clock size={14} className="text-stone-400" />
-                        <div className="w-full">
-                          <label className="block text-[10px] text-stone-400">{t(lang, "pickupTimeLabel")}</label>
-                          <input type="time" required value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} className="w-full text-sm outline-none" />
-                        </div>
-                      </div>
-                      <div className="flex flex-1 items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2">
-                        <Clock size={14} className="text-stone-400" />
-                        <div className="w-full">
-                          <label className="block text-[10px] text-stone-400">{t(lang, "returnTimeLabel")}</label>
-                          <input type="time" required value={returnTime} onChange={(e) => setReturnTime(e.target.value)} className="w-full text-sm outline-none" />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-1 items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2">
-                      <MapPin size={14} className="mt-0.5 shrink-0 text-stone-400" />
-                      <div className="w-full">
-                        <label className="block text-[10px] text-stone-400">{t(lang, "pickupLocationLabel")}</label>
-                        <input
-                          value={pickupLocation}
-                          onChange={(e) => setPickupLocation(e.target.value)}
-                          placeholder={SHOP_ADDRESS}
-                          className="w-full text-sm outline-none"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex flex-1 items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2">
-                      <MapPin size={14} className="mt-0.5 shrink-0 text-stone-400" />
-                      <div className="w-full">
-                        <label className="block text-[10px] text-stone-400">{t(lang, "returnLocationLabel")}</label>
-                        <input
-                          value={returnLocation}
-                          onChange={(e) => setReturnLocation(e.target.value)}
-                          placeholder={SHOP_ADDRESS}
-                          className="w-full text-sm outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2">
-                      <User size={14} className="text-stone-400" />
-                      <input required value={name} onChange={(e) => setName(e.target.value)} placeholder={t(lang, "namePlaceholder")} className="w-full text-sm outline-none" />
-                    </div>
-                    <div className="flex items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2">
-                      <Phone size={14} className="text-stone-400" />
-                      <input
-                        required
-                        type="tel"
-                        inputMode="numeric"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, "").slice(0, 15))}
-                        placeholder={t(lang, "phonePlaceholder")}
-                        className="w-full text-sm outline-none"
-                      />
-                    </div>
-
-                    {SHOP_PROMPTPAY_ID && (
-                      <div className="rounded-lg border border-black/10 bg-white p-3 text-center">
-                        <p className="flex items-center justify-center gap-1.5 text-xs font-semibold" style={{ color: INK }}>
-                          <QrCode size={14} /> {t(lang, "scanPay")}
-                        </p>
-                        {qrDataUrl ? (
-                          <img src={qrDataUrl} alt="พร้อมเพย์ QR" className="mx-auto mt-2 h-40 w-40" />
-                        ) : (
-                          <div className="mx-auto mt-2 flex h-40 w-40 items-center justify-center text-stone-300">
-                            <Loader2 size={20} className="animate-spin" />
-                          </div>
-                        )}
-                        <p className="mt-1.5 text-base font-bold" style={{ color: RED, fontFamily: "'IBM Plex Mono', monospace" }}>{money(depositAmount)}</p>
-                        <p className="text-[11px] text-stone-400">{t(lang, "depositNote")}</p>
-
-                        <div className="mt-2 rounded-lg bg-white/60 px-2.5 py-2 text-left text-[11px]">
-                          <div className="flex justify-between text-stone-500">
-                            <span>{t(lang, "estimatedTotal")}</span>
-                            <span style={{ color: INK }}>{money(totalSel)}</span>
-                          </div>
-                          {damageInsuranceAmount > 0 && (
-                            <div className="flex justify-between text-stone-500">
-                              <span>{t(lang, "damageInsuranceLabel")}</span>
-                              <span style={{ color: INK }}>+ {money(damageInsuranceAmount)}</span>
-                            </div>
-                          )}
-                          <div className="flex justify-between text-stone-500">
-                            <span>{t(lang, "depositPaidNow")}</span>
-                            <span style={{ color: INK }}>− {money(depositAmount)}</span>
-                          </div>
-                          <div className="mt-1 flex justify-between border-t border-dashed border-black/10 pt-1 font-semibold">
-                            <span style={{ color: INK }}>{t(lang, "dueAtPickup")}</span>
-                            <span style={{ color: RED }}>{money(Math.max(0, totalSel + damageInsuranceAmount - depositAmount))}</span>
-                          </div>
-                        </div>
-
-                        {damageInsuranceAmount > 0 && (
-                          <p className="mt-2 text-[10px] text-stone-400">
-                            {t(lang, "damageInsuranceNote", { amount: money(damageInsuranceAmount) })}
-                          </p>
-                        )}
-
-                        <label className="mt-3 flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-black/15 bg-white px-3 py-2.5 text-xs font-semibold" style={{ color: INK }}>
-                          <Upload size={13} />
-                          {slipFile ? slipFile.name : t(lang, "attachSlip")}
-                          <input type="file" accept="image/*" required className="hidden" onChange={(e) => setSlipFile(e.target.files?.[0] || null)} />
-                        </label>
-                        {!slipFile && <p className="mt-1.5 text-[10px] text-stone-400">{t(lang, "slipRequiredHint")}</p>}
-                      </div>
-                    )}
-
-                    <div className="flex items-center justify-between pt-1">
-                      <span className="text-xs text-stone-500">{t(lang, "estimatedTotal")}</span>
-                      <span className="text-base font-bold" style={{ color: RED, fontFamily: "'IBM Plex Mono', monospace" }}>{money(totalSel)}</span>
-                    </div>
-                    {rentalCalc.extraHours > 0 && (
-                      <p className="text-[10px] text-stone-400">{t(lang, "overtimeSurchargeNote", { hours: Math.round(rentalCalc.extraHours * 10) / 10, amount: money(rentalCalc.surcharge) })}</p>
-                    )}
-
-                    <label className="flex items-start gap-2 rounded-lg border border-black/10 bg-white px-3 py-2.5 text-xs">
-                      <input
-                        type="checkbox"
-                        checked={hasLicense}
-                        onChange={(e) => setHasLicense(e.target.checked)}
-                        className="mt-0.5 h-4 w-4 shrink-0 accent-current"
-                        style={{ color: RED }}
-                      />
-                      <span style={{ color: INK }}>{t(lang, "licenseConfirmLabel")}</span>
-                    </label>
-
-                    {submitError && <p className="text-xs font-medium text-red-600">{submitError}</p>}
-
-                    <button
-                      type="submit"
-                      disabled={submitting || uploadingSlip || !hasLicense || (!!SHOP_PROMPTPAY_ID && !slipFile)}
-                      className="w-full rounded-lg py-2.5 text-sm font-bold text-white disabled:opacity-50"
-                      style={{ background: RED }}
-                    >
-                      {uploadingSlip ? t(lang, "uploadingSlip") : submitting ? t(lang, "submitting") : t(lang, "submitBooking")}
-                    </button>
-                    <p className="text-center text-[10px] text-stone-400">{t(lang, "notConfirmedNote")}</p>
-                  </form>
-                )}
-              </div>
-            )}
-            </div>
-          </div>
-        )}
-      </main>
-      <ContactFloating />
-    </div>
-  );
+  return [lang, setLang];
 }
